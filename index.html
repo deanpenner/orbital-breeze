@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Breeze</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="sky" aria-label="Earth with your orbits"></canvas>
+
+  <header class="brief" id="brief">
+    <div class="brief-nav">
+      <button class="icon" id="prev" aria-label="Previous mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span id="count"></span>
+      <button class="icon" id="next" aria-label="Next mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <h1 id="title"></h1>
+    <p class="goal" id="goal"></p>
+    <p class="note" id="note"></p>
+    <div class="flights" id="flights" hidden></div>
+    <button class="primary" id="onward" hidden>Next mission</button>
+  </header>
+
+  <nav class="tools" aria-label="Playback and history">
+    <div class="seg world" role="group" aria-label="Which game">
+      <a href="index.html" aria-current="page">Earth</a>
+      <a href="moon.html">Moon</a>
+    </div>
+    <button id="play">Pause</button>
+    <button id="undo">Undo</button>
+    <button id="reset">Start over</button>
+    <details class="menu" id="menu">
+      <summary>Settings</summary>
+      <div class="menu-body">
+        <div class="menu-row"><span>Units</span>
+          <div class="seg" role="group" aria-label="Units">
+            <button id="unit-metric" aria-pressed="true">km</button>
+            <button id="unit-imperial" aria-pressed="false">mi</button>
+          </div>
+        </div>
+        <label class="menu-row" title="Double-click to reset"><span>Speed</span>
+          <input type="range" id="speed" min="-100" max="100" step="1" value="0" aria-label="Playback speed">
+        </label>
+        <p class="small" id="pace"></p>
+      </div>
+    </details>
+  </nav>
+
+  <div class="zoom" role="group" aria-label="View">
+    <button id="tilt" aria-pressed="false" title="Tilt the view. Shift-drag turns it." hidden>3D</button>
+    <button id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+    <button id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+    <button id="zoom-fit" title="Back to the whole journey">Fit</button>
+  </div>
+
+  <footer class="dock" id="dock">
+    <div class="plan">
+      <ol class="strip" id="strip"></ol>
+      <div class="detail" id="editor"></div>
+    </div>
+    <aside class="budget" aria-label="Vehicle, fuel and delta-v">
+      <div class="craft" id="craft-box" hidden>
+        <select id="vehicle" aria-label="Spacecraft"></select>
+        <p class="small" id="craft-facts"></p>
+        <div class="field"><span class="field-name">Payload</span><input class="num" id="n-payload" aria-label="Payload mass"></div>
+      </div>
+      <div class="field">
+        <span class="field-name" id="tank-name">Fuel loaded</span>
+        <span class="seg mini" id="tanks" role="group" aria-label="Which stage" hidden></span>
+        <input class="num" id="n-load" aria-label="Fuel loaded">
+      </div>
+      <input type="range" id="fuel" min="0" step="10" aria-label="Fuel loaded">
+      <div class="field">
+        <span class="field-name">Delta-v</span>
+        <output id="dv-out"></output>
+      </div>
+      <div class="meter" id="meter"></div>
+      <p class="small" id="tank-note"></p>
+    </aside>
+  </footer>
+
+  <script src="js/physics.js"></script>
+  <script src="js/journey.js"></script>
+  <script src="js/vehicles.js"></script>
+  <script src="js/flights.js"></script>
+  <script src="js/view.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

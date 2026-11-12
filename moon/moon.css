@@ -1,0 +1,34 @@
+/* Extras for the Moon page. Everything else comes from ../css/style.css. */
+:root {
+  --moon: #b4bdc9;
+  --moon-lit: #c6ced8;
+  --crater: #a2adbb;
+}
+
+/* The other two views of the journey, as small pictures beside the zoom buttons.
+   Clicking one brings it forward. */
+.insets {
+  --inset-w: 200px; --inset-h: 150px;
+  position: fixed; right: 70px; bottom: calc(var(--dock) + 16px);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.inset {
+  position: relative; display: block; width: var(--inset-w); height: var(--inset-h);
+  padding: 0; border-radius: 14px; overflow: hidden; background: var(--panel);
+}
+.inset canvas { display: block; width: 100%; height: 100%; }
+.inset span { position: absolute; left: 11px; top: 7px; font-size: 12px; font-weight: 650; color: var(--ink2); pointer-events: none; }
+.inset:hover span { color: var(--ink); }
+.inset:active { transform: none; }
+
+.note span.bad { color: var(--alert); }
+
+/* A Moon journey has more steps than most, so the chain is set a little tighter on narrower screens. */
+@media (max-width: 1320px) {
+  .coast span { margin: 0 4px; padding: 0 6px; }
+  .step { padding-right: 11px; }
+}
+@media (max-width: 900px) { .insets { display: none; } }
+
+/* The Settings panel opens over the small pictures. */
+.tools { z-index: 3; }

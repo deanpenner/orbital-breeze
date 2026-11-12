@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Breeze: the Moon</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="moon/moon.css">
+</head>
+<body>
+  <canvas id="sky" aria-label="Your journey to the Moon"></canvas>
+
+  <header class="brief" id="brief">
+    <div class="brief-nav">
+      <button class="icon" id="prev" aria-label="Previous mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span id="count"></span>
+      <button class="icon" id="next" aria-label="Next mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <h1 id="title"></h1>
+    <p class="goal" id="goal"></p>
+    <p class="note" id="note"></p>
+    <div class="flights" id="flights" hidden></div>
+    <button class="primary" id="onward" hidden>Next mission</button>
+  </header>
+
+  <nav class="tools" aria-label="Playback and history">
+    <div class="seg world" role="group" aria-label="Which game">
+      <a href="index.html">Earth</a>
+      <a href="moon.html" aria-current="page">Moon</a>
+    </div>
+    <button id="play">Pause</button>
+    <button id="undo">Undo</button>
+    <button id="reset">Start over</button>
+    <details class="menu" id="menu">
+      <summary>Settings</summary>
+      <div class="menu-body">
+        <div class="menu-row"><span>Units</span>
+          <div class="seg" role="group" aria-label="Units">
+            <button id="unit-metric" aria-pressed="true">km</button>
+            <button id="unit-imperial" aria-pressed="false">mi</button>
+          </div>
+        </div>
+        <label class="menu-row" title="Double-click to reset"><span>Speed</span>
+          <input type="range" id="speed" min="-100" max="100" step="1" value="0" aria-label="Playback speed">
+        </label>
+        <p class="small" id="pace"></p>
+      </div>
+    </details>
+  </nav>
+
+  <!-- The same journey at the other two scales. Click one to bring it forward. -->
+  <div class="insets" id="insets" role="group" aria-label="Other views of the journey">
+    <button class="inset" data-scene="earth" title="Bring the Earth view forward"><canvas></canvas><span>Earth</span></button>
+    <button class="inset" data-scene="journey" title="Bring the Journey view forward"><canvas></canvas><span>Journey</span></button>
+    <button class="inset" data-scene="moon" title="Bring the Moon view forward"><canvas></canvas><span>Moon</span></button>
+  </div>
+
+  <div class="zoom" role="group" aria-label="View">
+    <button id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+    <button id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+    <button id="zoom-fit" title="Back to the whole picture">Fit</button>
+  </div>
+
+  <footer class="dock" id="dock">
+    <div class="plan">
+      <ol class="strip" id="strip"></ol>
+      <div class="detail" id="editor"></div>
+    </div>
+    <aside class="budget" aria-label="Vehicle, fuel and delta-v">
+      <div class="craft" id="craft-box" hidden>
+        <select id="vehicle" aria-label="Spacecraft"></select>
+        <p class="small" id="craft-facts"></p>
+        <div class="field"><span class="field-name">Payload</span><input class="num" id="n-payload" aria-label="Payload mass"></div>
+      </div>
+      <div class="field">
+        <span class="field-name" id="tank-name">Fuel loaded</span>
+        <span class="seg mini" id="tanks" role="group" aria-label="Which stage" hidden></span>
+        <input class="num" id="n-load" aria-label="Fuel loaded">
+      </div>
+      <input type="range" id="fuel" min="0" step="10" aria-label="Fuel loaded">
+      <div class="field">
+        <span class="field-name">Delta-v</span>
+        <output id="dv-out"></output>
+      </div>
+      <div class="meter" id="meter"></div>
+      <p class="small" id="tank-note"></p>
+    </aside>
+  </footer>
+
+  <script src="moon/js/physics.js"></script>
+  <script src="moon/js/journey.js"></script>
+  <script src="moon/js/lunar.js"></script>
+  <script src="moon/js/missions.js"></script>
+  <script src="moon/js/flights.js"></script>
+  <script src="moon/js/view.js"></script>
+  <script src="moon/js/app.js"></script>
+</body>
+</html>
