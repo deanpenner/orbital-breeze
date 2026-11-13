@@ -333,7 +333,7 @@
         const plain = Math.abs(rb.params.rad) < 5e-4 && Math.abs(rb.params.turn) < 5e-3;
         let label = plain ? fmt.dvSigned(rb.params.pro) : fmt.dv(rb.cmd);
         if (!rb.short && rb.cmd > 1e-9 && rb.after.e < 0.001) label += '  circular';
-        if (rb.short) label += '  out of fuel';
+        if (rb.short) label += '  out of propellant';
         const side = Math.abs(g.d[0]) > 0.4;
         text(label, g.tip[0] + g.d[0] * (side ? 18 : 22), g.tip[1] + g.d[1] * 22, { align: !side ? 'center' : g.d[0] > 0 ? 'left' : 'right', size: 12.5, weight: 650, color: rb.short ? C.alert : C['burn-ink'] });
       }
@@ -425,7 +425,37 @@
 
       // Where you end up
       const fl = res.legs[last], fo = res.final;
-      if (fl.end !== 'burn') {
+      if (fl.end === 'escape') {
+        // Leaving for good: the line thins out toward the edge of the picture and ends in an arrowhead.
+        const pts = X.arcPoints(fo, fl.nu0, fl.sweep, 240), edge = (q) => X.clamp((Math.min(q[0], cam.w - q[0], q[1], cam.h - cam.bottom - q[1]) - 12) / 110, 0, 1);
+        let s0 = toScreen(pts[0]), a0 = edge(s0), run = 0, tip = null;
+        ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.lineCap = 'butt';
+        for (let i = 1; i < pts.length; i++) {
+          const s1 = toScreen(pts[i]), gap = Math.hypot(s1[0] - s0[0], s1[1] - s0[1]), n = Math.max(1, Math.min(60, Math.ceil(gap / 5))), dark = hidden(pts[i]) || hidden(pts[i - 1]);
+          let q0 = s0;
+          for (let k = 1; k <= n; k++) {
+            const u = k / n, q = [s0[0] + (s1[0] - s0[0]) * u, s0[1] + (s1[1] - s0[1]) * u], a = edge(q), mid = (a + a0) / 2;
+            if (mid > 0.02 && !dark) {
+              ctx.setLineDash(mid < 0.995 ? [7, 5] : []); ctx.lineDashOffset = -run; ctx.globalAlpha = mid;
+              ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+            }
+            if (!tip && a0 >= 0.5 && a < 0.5 && gap > 0) tip = { at: q, dir: [(s1[0] - s0[0]) / gap, (s1[1] - s0[1]) / gap] };
+            run += gap / n; q0 = q; a0 = a;
+          }
+          s0 = s1;
+        }
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        if (tip) {
+          const d = tip.dir, n = [-d[1], d[0]], c = tip.at, k = 7;
+          ctx.beginPath(); ctx.moveTo(c[0] - d[0] * k + n[0] * k * 0.8, c[1] - d[1] * k + n[1] * k * 0.8); ctx.lineTo(c[0] + d[0] * k * 0.5, c[1] + d[1] * k * 0.5); ctx.lineTo(c[0] - d[0] * k - n[0] * k * 0.8, c[1] - d[1] * k - n[1] * k * 0.8);
+          ctx.lineWidth = 2.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.lineCap = 'butt'; ctx.globalAlpha = 1;
+          const vinf = fo.e > 1 ? Math.sqrt(-X.MU / fo.a) : null, side = d[0] > 0.3 ? 'right' : d[0] < -0.3 ? 'left' : 'center';
+          const at = [c[0] - d[0] * 18 + n[0] * (side === 'center' ? 0 : 22) * (n[1] < 0 ? 1 : -1), c[1] - d[1] * 18 + n[1] * (side === 'center' ? 0 : 22) * (n[1] < 0 ? 1 : -1)];
+          text('Escapes Earth', at[0], at[1] - 8, { align: side, weight: 650 });
+          text(vinf ? `v∞ ${fmt.speed(vinf)}` : 'beyond its sphere of influence', at[0], at[1] + 8, { align: side, size: 12, color: C.ink2 });
+        }
+        ctx.globalAlpha = 1;
+      } else if (fl.end !== 'burn') {
         arc(fo, fl.nu0, fl.sweep);
         ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
         if (fl.end === 'reentry') {
@@ -442,7 +472,7 @@
           // Put the label at the top of the picture, wherever that is on the orbit.
           let top = fo.R, best = -Infinity;
           for (let i = 0; i < 72; i++) { const p = X.stateAt(fo, i / 72 * TAU).r, y = -flat(p)[1]; if (y > best && !hidden(p)) { best = y; top = p; } }
-          apsisLabel(top, `Circular  ${fmt.dist(fo.a - RE)}${tilt}`, `${speed(fo.a)}   one lap ${fmt.time(fo.period)}`);
+          apsisLabel(top, `Circular  ${fmt.dist(fo.a - RE)}${tilt}`, `${speed(fo.a)}   period ${fmt.time(fo.period)}`);
         } else {
           if (fo.e < 1 && fo.ra < SOI && (res.status === 'orbit' || X.wrapTau(Math.PI - fl.nu0) <= fl.sweep))
             apsisLabel(X.stateAt(fo, Math.PI).r, `Apoapsis  ${fmt.dist(fo.ra - RE)}${tilt}`, speed(fo.ra));

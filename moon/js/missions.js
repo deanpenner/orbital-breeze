@@ -74,9 +74,9 @@
   const MISSIONS = [
     {
       id: 'reach', title: 'As far as the Moon',
-      goal: 'Raise the far side of your orbit to the Moon’s distance, 384,400 km.',
-      hint: 'Pull the arrow forward, a long way. The small Journey picture shows how far out you reach.',
-      insight: 'The Moon is ten times as high as geostationary orbit, yet the burn is only a quarter bigger. Nearly all the cost of going anywhere is in leaving low orbit.',
+      goal: 'Raise your apoapsis, the far side of the orbit, to the Moon’s distance: 384,400 km.',
+      hint: 'Pull the arrow forward, a long way. The small Journey view shows how far out you reach.',
+      insight: 'The Moon is ten times as high as geostationary orbit, yet the burn is only a quarter bigger. Nearly all the cost of going anywhere is in leaving low orbit. An orbit this high would not last, though: sooner or later the Moon comes by.', calm: true,
       start: earthOrbit(PARK, PARK), moon: 205,
       target: { apo: [M.a - RE - 15000, M.a - RE + 15000] },
       ref: () => speedAt(RE + PARK, M.a) - circ(RE + PARK),
@@ -85,7 +85,7 @@
       id: 'meet', title: 'Meet the Moon',
       goal: 'The burn is big enough, but the Moon will not be there. Pass within 10,000 km of it.',
       hint: 'Drag the burn round the orbit to swing the whole path. The ring shows where the Moon will be when you get there.',
-      insight: 'The Moon moves 13° a day, so during a three-day trip it travels a tenth of the way round its orbit. You aim at where it will be, not at where it is.',
+      insight: 'The burn that sends a craft to the Moon is trans-lunar injection, TLI. The Moon moves 13° a day, so during a three-day trip it travels a tenth of the way round its orbit. You aim at where it will be, not at where it is.',
       start: earthOrbit(PARK, PARK), moon: 95, burns: [burn({ pro: 3.15 })], done: 'A close pass.',
       target: { pass: [0, 10000] }, aims: ['pass'],
       status: (res) => meeting(res),
@@ -94,33 +94,33 @@
       id: 'return', title: 'Round the Moon and back',
       goal: 'Pass close behind the Moon, within 10,000 km, so that it bends your path home into Earth’s atmosphere with no second burn.',
       hint: 'Drag the burn a little at a time and watch where the path goes after the Moon. Close in on the pass that comes straight back.',
-      insight: 'This is a free return. Apollo 8, 10 and 11 left Earth on one, so that a crew whose engine failed would still fall home.',
+      insight: 'This is a free-return trajectory. Apollo 8, 10 and 11 left Earth on one, so that a crew whose engine failed would still fall home.',
       start: earthOrbit(PARK, PARK), moon: swingAt - 22, burns: [burn({ pro: AROUND })], done: 'Home again.',
       target: { home: CORRIDOR, pass: [0, 10000] }, aims: ['entry'],
       status: (res) => (res.approach && res.approach.entered ? homing(res) : meeting(res)),
     },
     {
       id: 'stay', title: 'Stay',
-      goal: 'You arrive 110 km above the far side, going too fast to be held. Brake into orbit around the Moon.',
-      hint: 'The S-IVB is spent, so drop it. Then add a burn where the path comes closest, and pull it backward.',
-      insight: 'Without the burn the Moon swings you round and lets you go. Braking at the closest point, where you are fastest, takes the least fuel to be caught.',
+      goal: 'You arrive 110 km above the far side, going too fast to be captured. Brake into orbit around the Moon.',
+      hint: 'The S-IVB is spent, so separate it. Then add a burn at the closest approach, and pull it backward: retrograde.',
+      insight: 'This burn is lunar orbit insertion, LOI. Without it the Moon swings you round and lets you go. Braking at the closest point, where you are fastest, takes the least propellant to be captured.',
       start: earthOrbit(PARK, PARK), moon: arrive.moon, burns: [burn({ pro: TO_MOON })], scene: 'moon', done: 'In orbit around the Moon.',
       target: { lunar: true }, aims: ['pass'],
     },
     {
       id: 'low', title: 'Low and round',
       goal: 'Bring this long orbit down to a circle about 110 km above the Moon.',
-      hint: 'A burn moves the far side of the orbit. Drag the burn to the low point, then pull backward until the orbit is round.',
-      insight: 'The Moon has no air, so an orbit this low lasts. And its pull is gentle: a lap here runs at 1.6 km/s, a fifth of the speed around Earth, so reshaping an orbit is cheap.',
+      hint: 'A burn moves the far side of the orbit. Drag the burn to periapsis, then pull backward until the orbit is circular.',
+      insight: 'The Moon has no air, so an orbit this low lasts. And its pull is gentle: orbital speed here is 1.6 km/s, a fifth of the speed around Earth, so reshaping an orbit is cheap.',
       start: moonOrbit(110, 3000, { nu: 115 }), vehicle: 'csm', fuel: 7000, moon: 60,
       target: { lunar: true, apo: [90, 130], peri: [90, 130] },
       ref: () => speedAt(M.R + 110, M.R + 3000, M.mu) - circ(M.R + 110, M.mu),
     },
     {
       id: 'home', title: 'Come home',
-      goal: 'Leave lunar orbit and meet Earth’s atmosphere at an angle between 5.5° and 7.5°.',
-      hint: 'Speed up by about 900 m/s to break free. Then drag the burn round the orbit to steer where the path goes.',
-      insight: 'From here the safe way in is a slot some 50 km deep at the end of a 380,000 km fall. Too shallow and the capsule skips off; too steep and it burns. Apollo 11’s burn for home was 999 m/s.',
+      goal: 'Leave lunar orbit and meet Earth’s atmosphere at a flight-path angle between 5.5° and 7.5° below horizontal.',
+      hint: 'Speed up by about 900 m/s to escape the Moon. Then drag the burn round the orbit to steer where the path goes.',
+      insight: 'This burn is trans-Earth injection, TEI. The safe way in, the entry corridor, is some 50 km deep at the end of a 380,000 km fall. Too shallow and the capsule skips off; too steep and it burns. Apollo 11’s TEI was 999 m/s.',
       start: moonOrbit(110, 110, { nu: 200 }), vehicle: 'csm', payload: 0, fuel: 5200, moon: 60, done: 'On target.',
       target: { home: CORRIDOR, days: 5 }, aims: ['entry'],
       status: (res) => homing(res),
@@ -151,15 +151,15 @@
   /* One line on how the return to Earth is going. */
   function homing(res) {
     if (res.status === 'impact') return { text: 'This path hits the Moon.', bad: true };
-    if (res.status === 'lunar') return { text: 'Still in orbit around the Moon. Speed up more to break free.' };
+    if (res.status === 'lunar') return { text: 'Still in orbit around the Moon. Speed up more to escape.' };
     if (res.status === 'reentry' && res.entry) {
       const g = res.entry.angle, a = res.approach;
       if (a && !a.start && a.dist > M.R + 10000 && g <= CORRIDOR[1]) return { text: 'Comes back, but only brushes past the Moon, {d} away. Pass closer.', d: a.dist - M.R };
       return g > CORRIDOR[1] ? { text: `Comes back too steep: ${g.toFixed(1)}° down.`, bad: g > 12 } : g < CORRIDOR[0] ? { text: `Comes back too shallow: ${g.toFixed(1)}° down.` } : { text: `Comes back at ${g.toFixed(1)}° down.` };
     }
-    if (res.status === 'escape') return { text: 'Flung away from Earth altogether.' };
+    if (res.status === 'escape') return { text: 'Escapes Earth altogether.' };
     if (res.status === 'orbit') return { text: 'Comes back, but misses Earth by {d}.', d: res.final.rp - RE };
-    return { text: 'The path wanders between Earth and the Moon.' };
+    return { text: 'Meets the Moon a second time, so it is not followed further.' };
   }
 
   function check(mission, res) {

@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Orbital Breeze</title>
+  <link rel="icon" href="icon/orbital-breeze.ico" sizes="any">
+  <link rel="icon" href="icon/orbital-breeze.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -63,18 +65,18 @@
       <ol class="strip" id="strip"></ol>
       <div class="detail" id="editor"></div>
     </div>
-    <aside class="budget" aria-label="Vehicle, fuel and delta-v">
+    <aside class="budget" aria-label="Spacecraft, propellant and delta-v">
       <div class="craft" id="craft-box" hidden>
         <select id="vehicle" aria-label="Spacecraft"></select>
         <p class="small" id="craft-facts"></p>
         <div class="field"><span class="field-name">Payload</span><input class="num" id="n-payload" aria-label="Payload mass"></div>
       </div>
       <div class="field">
-        <span class="field-name" id="tank-name">Fuel loaded</span>
+        <span class="field-name" id="tank-name">Propellant</span>
         <span class="seg mini" id="tanks" role="group" aria-label="Which stage" hidden></span>
-        <input class="num" id="n-load" aria-label="Fuel loaded">
+        <input class="num" id="n-load" aria-label="Propellant loaded">
       </div>
-      <input type="range" id="fuel" min="0" step="10" aria-label="Fuel loaded">
+      <input type="range" id="fuel" min="0" step="10" aria-label="Propellant loaded">
       <div class="field">
         <span class="field-name">Delta-v</span>
         <output id="dv-out"></output>

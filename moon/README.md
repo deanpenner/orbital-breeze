@@ -42,10 +42,10 @@ around Earth until it comes within 66,100 km of the Moon, then a Kepler orbit ar
 an Earth orbit again if it leaves. There is no step-by-step integration, so every edit is instant
 and nothing depends on real time.
 
-- Burns belong to a body, Earth or Moon, and are instantaneous. Stages, fuel, and holding a burn by
-  delta-v, fuel or engine time work as on the Earth page.
-- A Drop stage step lets go of the spent stage. Once the last stage is firing, the same step lets go
-  of the cargo instead (Apollo's lander).
+- Burns belong to a body, Earth or Moon, and are instantaneous. Stages, propellant, and holding a
+  burn by delta-v, propellant or burn time work as on the Earth page.
+- A Stage separation step discards the spent stage. Once the last stage is firing, the same step
+  separates the cargo instead (Apollo's lander).
 - Reentry is dropping below 100 km. The entry angle and speed are measured at 122 km, where Apollo
   quoted them.
 - Preset burns in the missions and the famous flights are found when needed by bisection on the
@@ -58,10 +58,41 @@ and nothing depends on real time.
   few percent.
 - Patched conics are a few percent off near the edge of the Moon's sphere of influence. A path that
   only brushes that edge is not to be trusted.
-- No Sun, no lunar mascons, no air drag. A closed orbit that misses the Moon on one lap is taken to
-  stay as it is.
+- No Sun, no lunar mascons, no air drag. A closed orbit that misses the Moon on one orbit is taken
+  to stay as it is, with a caution where that is not true (see below).
 - The playback gives short legs a larger share of the loop than their length, so the minutes near
   Earth do not flash past. Within a leg time runs evenly.
+
+## How far to trust it
+
+`node moon/test/accuracy.mjs` flies the same journeys in a second model where Earth and the Moon
+both pull all the time, integrated step by step, and prints the two side by side. What it shows:
+
+| | The game | Both bodies pulling |
+|---|---|---|
+| Departure burn to pass 110 km above the Moon | 3,150 m/s | 3,150.7 m/s |
+| Time to the Moon for that burn | 77.9 h | 76.3 h |
+| Speed at the closest approach | 2.48 km/s | 2.50 km/s |
+| Orbit after the game's 877 m/s braking burn | 110 × 110 km | 101 × 218 km |
+| Journeys with one pass of the Moon that end the same way | | 164 of 190 |
+
+So burn sizes and timings are good to one to three percent. The aim is another matter: flown with
+exactly the game's burn, the true path passes several hundred kilometres from where the game puts
+it, enough to hit the Moon instead of skimming it. Under a metre per second at departure puts that
+right, which is what real flights' midcourse corrections are for. Read the game's numbers as "this is
+the size and shape of the answer", not as a flight plan.
+
+Three things the game marks because the simple model cannot be trusted there:
+
+- **A second, unplanned meeting with the Moon.** After one pass the game's ending matches the fuller
+  model about six times in seven. After a second it matched about one time in three, because the result turns
+  on metres per second. The track is drawn fading toward the second meeting and not followed further.
+- **Orbits the other body would undo.** An Earth orbit reaching past about 200,000 km has its low
+  point moved by hundreds of kilometres within a few orbits; one that reaches the Moon's distance will
+  meet the Moon sooner or later. A lunar orbit running with the Moon's motion is distorted above about
+  20,000 km and pulled away above about 34,000 km (half as far again when it runs against the Moon's
+  motion). These carry a note on the picture, and in Free flight a dashed line.
+- **Escape.** A path that leaves Earth's sphere of influence fades out with an arrowhead.
 
 ## Famous flights
 
@@ -75,18 +106,18 @@ burn home 55 h later, 59.6 h to the atmosphere, entry at 6.48° and 11.03 km/s, 
 stack at arrival. The model's burns against the real ones: departure 3,156 m/s (3,182), first lunar
 burn 838 m/s (889), second 42 m/s (48.4), burn home 1,009 m/s (999). The first lunar burn is 6%
 small because the model's Moon is nearer and slower than the real one was that week. The S-IVB's
-empty mass and fuel are estimates.
+dry mass and propellant are estimates.
 Sources: NASA, *Apollo 11 Mission Report* (MSC-00171); NASA SP-4029,
 [*Apollo by the Numbers*](https://history.nasa.gov/SP-4029/SP-4029.htm);
 [Apollo 11](https://en.wikipedia.org/wiki/Apollo_11).
 
 **Chandrayaan-3** (July and August 2023). Published and reproduced: the launch orbit, all five
-Earth-bound orbits, the capture orbit (164 × 18,074 km), the four lowering orbits, and the laps
+Earth-bound orbits, the capture orbit (164 × 18,074 km), the four lowering orbits, and the orbits
 between burns that the published dates imply. Two things differ, both because the Moon's orbit is a
 circle here. The sixth burn reaches 378,000 km, not the real 369,328 km, since the Moon was near
 its closest that week; and the capture burn lasts 1,526 s against the real 1,835 s, since the real
 Moon was also moving faster. The trip from the sixth burn to the Moon takes 4.1 days against 4.8.
-The orbits are shown flat; the real ones were tilted. The engine's efficiency (315 s) is an
+The orbits are shown in one plane; the real ones were inclined. The engine's specific impulse (315 s) is an
 estimate; its 440 N thrust and the masses are published.
 Sources: ISRO, [Chandrayaan-3](https://www.isro.gov.in/Chandrayaan3_Details.html);
 [Chandrayaan-3](https://en.wikipedia.org/wiki/Chandrayaan-3);

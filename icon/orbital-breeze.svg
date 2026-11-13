@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Orbital Breeze</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e2ebf0"/>
+    </linearGradient>
+    <clipPath id="globe"><circle cx="128" cy="130" r="56"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#tile)" stroke="#c7d3db" stroke-width="2"/>
+  <!-- far half of a circular orbit, seen at a tilt -->
+  <g transform="translate(128 130) rotate(-22)" fill="none" stroke-linecap="round">
+    <path d="M-106 0A106 42 0 0 1 106 0" stroke="#1b2a4a" stroke-width="10"/>
+  </g>
+  <circle cx="128" cy="130" r="56" fill="#3b7fc4"/>
+  <g clip-path="url(#globe)">
+    <circle cx="116" cy="120" r="58" fill="#4d95e0"/>
+    <ellipse cx="104" cy="104" rx="22" ry="11" transform="rotate(-28 104 104)" fill="#74cba2"/>
+    <ellipse cx="150" cy="118" rx="10" ry="19" transform="rotate(-14 150 118)" fill="#74cba2"/>
+    <ellipse cx="112" cy="168" rx="24" ry="10" transform="rotate(-12 112 168)" fill="#74cba2"/>
+  </g>
+  <g clip-path="url(#globe)"><g transform="translate(128 130) rotate(-22)" fill="none">
+    <path d="M-106 0A106 42 0 0 0 106 0" stroke="#f4f8fa" stroke-width="20"/>
+  </g></g>
+  <!-- near half, in front of the Earth, with one burn on it -->
+  <g transform="translate(128 130) rotate(-22)" fill="none" stroke-linecap="round">
+    <path d="M-106 0A106 42 0 0 0 106 0" stroke="#1b2a4a" stroke-width="10"/>
+    <circle cx="58" cy="35.2" r="20" fill="#f4a520" stroke="#ffffff" stroke-width="6"/>
+  </g>
+</svg>

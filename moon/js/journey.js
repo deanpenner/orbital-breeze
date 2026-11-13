@@ -15,13 +15,13 @@
   const VEHICLES = {
     // The S-IVB's empty mass and fuel left in orbit are estimates; the rest are published.
     apollo: {
-      name: 'Apollo with S-IVB stage', cargo: 'lunar module', payload: 15100, release: 'Leave lander',
+      name: 'Apollo with S-IVB stage', cargo: 'lunar module', payload: 15100, release: 'Lander separation',
       stages: [{ name: 'S-IVB', dry: 17000, propMax: 74000, isp: 421, thrust: 890000 }, SM],
     },
-    csm: { name: 'Apollo spacecraft', cargo: 'lunar module', payload: 15100, release: 'Leave lander', stages: [Object.assign({}, SM, { name: 'Service engine' })] },
+    csm: { name: 'Apollo spacecraft', cargo: 'lunar module', payload: 15100, release: 'Lander separation', stages: [Object.assign({}, SM, { name: 'Service engine' })] },
     // The lander is published at 1,749.9 kg and the module at 448.6 kg empty with 1,696.4 kg of fuel.
     // ISRO has not published the engine's efficiency; 315 s is typical of its 440 N engine.
-    chandrayaan3: Object.assign(one('Chandrayaan-3', 'lander', 1749.9, 448.6, 1696.4, 440, 315, '440 N engine'), { release: 'Release lander' }),
+    chandrayaan3: Object.assign(one('Chandrayaan-3', 'lander', 1749.9, 448.6, 1696.4, 440, 315, '440 N engine'), { release: 'Lander separation' }),
     centaur: one('Centaur upper stage', 'probe', 4000, 2247, 20830, 99200, 450.5, 'Centaur'),
     orion: one('Orion with service module', '', 0, 16585, 8600, 26700, 315.1, 'Main engine'),
   };

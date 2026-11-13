@@ -141,6 +141,8 @@ select { border: 1.5px solid var(--line); background: var(--panel); border-radiu
 .step.add:hover { color: var(--ink); }
 .step.add .plus { font-size: 17px; line-height: 1; font-weight: 500; }
 .step.result { padding: 0 4px 0 10px; border-left: 3px solid var(--ink); border-radius: 0; min-height: 34px; }
+.step.result.bad { border-left-color: var(--alert); }
+.step.result.bad small { color: var(--alert); }
 
 .detail { position: relative; background: var(--paper); border-radius: 14px; padding: 9px 12px 9px 16px; display: flex; flex-direction: column; gap: 9px; }
 .detail::before {

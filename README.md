@@ -19,9 +19,9 @@ Open `index.html` in a browser (`moon.html` for the Moon). There is nothing to i
 
 The bottom bar shows only what a step needs. More reveals everything:
 
-- **Where**: periapsis, apoapsis, an equator crossing, or anywhere; and how far to coast first, in laps or degrees.
-- **Size**: delta-v, fuel and engine time are three views of the same burn. Click one to hold it. A burn held as fuel or engine time delivers a different delta-v when the craft's mass changes.
-- **Direction**: prograde (along the path), radial (away from Earth) and plane turn (swinging the path sideways).
+- **Where**: periapsis, apoapsis, the ascending or descending node, or anywhere; and how far to coast first, in orbits or degrees.
+- **Size**: delta-v, propellant and burn time are three views of the same burn. Click one to hold it. A burn held as propellant or burn time delivers a different delta-v when the craft's mass changes.
+- **Direction**: prograde (along the path), radial (away from Earth) and plane change (swinging the path sideways).
 
 Units and playback speed are under Settings.
 
@@ -29,7 +29,7 @@ Units and playback speed are under Settings.
 
 - Two-body Kepler orbits around Earth, drawn to scale, in three dimensions (`js/physics.js`).
 - Burns are instantaneous. The orange arc under a burn shows how much of the orbit the engine would really be firing over.
-- Fuel follows the rocket equation, stage by stage. A Drop stage step discards the spent stage.
+- Propellant follows the rocket equation, stage by stage. A Stage separation step discards the spent stage.
 - Reentry is taken as dropping below 100 km. Escape is leaving Earth's sphere of influence.
 - The plane drift in the sun-synchronous step is the standard J2 formula.
 
@@ -53,7 +53,7 @@ the real ones. Each flight says in the game which of its figures are estimates.
 
 ## Spacecraft
 
-In Free flight the panel beside the fuel load lets you pick a real stage or spacecraft and set
+In Free flight the panel beside the propellant load lets you pick a real stage or spacecraft and set
 its payload. Masses, thrust and efficiency are published figures:
 [Centaur](https://en.wikipedia.org/wiki/Centaur_(rocket_stage)),
 [Falcon 9](https://en.wikipedia.org/wiki/Falcon_9_Full_Thrust),
@@ -66,7 +66,7 @@ its payload. Masses, thrust and efficiency are published figures:
 [Breeze-M](https://www.ilslaunch.com/breeze-m/),
 [Inertial Upper Stage](https://en.wikipedia.org/wiki/Inertial_Upper_Stage).
 Exceptions: New Glenn's second stage (masses unpublished, placeholders), and the Soyuz, Gemini,
-GSAT-29 and Saturn third-stage entries, whose empty masses or fuel loads are estimates.
+GSAT-29 and Saturn third-stage entries, whose dry masses or propellant loads are estimates.
 
 ## The Moon
 

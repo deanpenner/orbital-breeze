@@ -10,6 +10,7 @@
   const MOON = { mu: 4902.8, R: 1737.4, a: 384400, soi: 66100, period: 27.321661 * 86400 };
   MOON.n = TAU / MOON.period; MOON.speed = MOON.a * MOON.n;
   const M_NEAR = MOON.a - 3 * MOON.soi;
+  const HIGH_EARTH = 200000;   // km from Earth's centre: above this the Moon reshapes an orbit within a few laps
   const ENTRY = 122;   // km: the height at which Apollo quoted its entry angle (400,000 ft)
   const BODY = {
     earth: { name: 'Earth', mu: MU, R: RE, floor: RE + ATM, edge: SOI },
@@ -45,6 +46,9 @@
     const start = startOrbit(plan);
     let body = plan.start.body === 'moon' ? 'moon' : 'earth';
     let o = start, nu = o.nu, t = 0, mass = massNow(), ended = null, hops = 0, dvUsed = 0, count = 0;
+    // After the last step the path is followed on its own. `left` counts the times it has then
+    // left the Moon: one pass can be trusted, a second meeting cannot (see moon/README.md).
+    let onItsOwn = false, left = 0;
     // The closest the craft comes to the Moon. A journey that starts there has no arrival to speak of.
     let approach = body === 'moon' ? { entered: true, start: true, dist: start.rp, t: 0, orbit: start } : null;
     const legs = [], burns = [];
@@ -99,10 +103,11 @@
       let dt = X.coastTime(o, nu, span);
       if (body === 'earth') {
         const enc = encounter(nu, span, dt);
-        if (enc) { span = enc.sweep; dt = enc.tau; end = 'soi-in'; }
+        if (enc) { span = enc.sweep; dt = enc.tau; end = onItsOwn && left > 0 ? 'again' : 'soi-in'; }
       }
       legs.push({ body, orbit: o, nu0: nu, sweep: span, t0: t, dt, end, hops });
       t += dt; nu += span;
+      if (end === 'soi-out' && onItsOwn) left++;
       if (end === 'soi-in' || end === 'soi-out') {
         const st = X.stateAt(o, nu), m = moonAt(t, a0), into = end === 'soi-in';
         o = into ? X.fromState(X.sub(st.r, m.r), X.sub(st.v, m.v), MOON.mu) : X.fromState(X.add(st.r, m.r), X.add(st.v, m.v), MU);
@@ -184,8 +189,19 @@
 
     // After the last step, follow the path to its natural end: a stable orbit, a surface, or open space.
     const tail = legs.length;
+    onItsOwn = true;
     for (let k = 0; !ended && k < 8; k++) { const end = coast(null); if (terminal(end)) ended = end; }
-    const status = ended === 'loop' ? (body === 'earth' ? 'orbit' : 'lunar') : ended || 'lost';
+    // 'unsettled': the path comes back to the Moon a second time with no burn in between. Where it
+    // goes after that depends on metres per second, so it is not followed further.
+    const status = ended === 'loop' ? (body === 'earth' ? 'orbit' : 'lunar') : ended === 'again' ? 'unsettled' : ended || 'lost';
+
+    // An orbit this model calls closed, but which the other body would in truth pull out of shape.
+    // The limits come from flying the same orbits with both bodies pulling at once.
+    let caution = null;
+    if (status === 'orbit') caution = o.ra > MOON.a - MOON.soi ? 'crossing' : o.ra > HIGH_EARTH ? 'tugged' : null;
+    else if (status === 'lunar') { const k = o.W[2] < 0 ? 1.5 : 1; caution = o.ra > 34000 * k ? 'barely' : o.ra > 20000 * k ? 'loose' : null; }
+    // Speed left over once clear of Earth, for a path that escapes.
+    const vinf = status === 'escape' && o.e > 1 ? Math.sqrt(-o.mu / o.a) : null;
 
     // Coming home: speed and angle below level where the path meets the top of the atmosphere.
     let entry = null;
@@ -202,7 +218,7 @@
     for (let k = si; k < V.stages.length; k++) { dvBudget += X.exhaust(V.stages[k].isp) * Math.log(stack / (stack - fuel[k])); stack -= V.stages[k].dry + fuel[k]; }
     return {
       legs, burns, final: o, finalBody: body, status, duration: t, dvUsed, dvBudget, start, startBody: plan.start.body === 'moon' ? 'moon' : 'earth',
-      approach, entry, moon0: a0, tail, rounded: legs.some((l) => l.end === 'soi-out'),
+      approach, entry, moon0: a0, tail, caution, vinf, rounded: legs.some((l) => l.end === 'soi-out'),
       startTheta: X.argOf(start, X.stateAt(start, start.nu).r),
       stage: si, fuelLeft: fuel[si], massEnd: mass, released,
       stages: V.stages.map((s, k) => ({ name: s.name, loaded: loaded[k], left: fuel[k], dropped: k < si })),
@@ -233,5 +249,5 @@
     return pts;
   }
 
-  G.Orbit.lunar = { MOON, BODY, ENTRY, moonAt, startOrbit, compute, stateAtTime, legPoints };
+  G.Orbit.lunar = { MOON, BODY, ENTRY, HIGH_EARTH, moonAt, startOrbit, compute, stateAtTime, legPoints };
 })(globalThis);

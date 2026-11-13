@@ -185,8 +185,8 @@
       dp: () => (coastUnit() === 'deg' ? 1 : 3), step: 1,
       get: () => (coastUnit() === 'deg' ? coastOf(S.sel) / D : coastOf(S.sel) / TAU),
       text: () => { const v = shownValue(FIELDS['n-coast']); return coastUnit() === 'deg' ? fmt.deg(v) : String(Math.round(v * 100) / 100); },
-      set: (x, typed) => {   // "45 deg" or "2 laps" switches the unit as well
-        if (/deg|°/i.test(typed || '')) cur().b.coastUnit = 'deg'; else if (/lap/i.test(typed || '')) cur().b.coastUnit = 'laps';
+      set: (x, typed) => {   // "45 deg" or "2 orbits" switches the unit as well
+        if (/deg|°/i.test(typed || '')) cur().b.coastUnit = 'deg'; else if (/lap|orbit|rev/i.test(typed || '')) cur().b.coastUnit = 'laps';
         setCoast(S.sel, Math.max(0, x) * (coastUnit() === 'deg' ? D : TAU));
       },
     },
@@ -262,7 +262,7 @@
     placeCaret(); syncZoom();
   }
 
-  const anchorWords = { apo: 'apoapsis', peri: 'periapsis', an: 'the equator, northbound', dn: 'the equator, southbound' };
+  const anchorWords = { apo: 'apoapsis', peri: 'periapsis', an: 'the ascending node', dn: 'the descending node' };
   function anchorOf(b, rb) {
     if ((b.anchor === 'apo' || b.anchor === 'peri') && rb.before.e > J.ECC_APS) return b.anchor;
     if ((b.anchor === 'an' || b.anchor === 'dn') && X.nodeNus(rb.before)) return b.anchor;
@@ -271,7 +271,7 @@
   function outcome() {
     const o = res.final;
     if (res.status === 'reentry') return ['Reentry', 'falls into the atmosphere'];
-    if (res.status === 'escape') return ['Escape', 'leaves Earth'];
+    if (res.status === 'escape') return ['Earth escape', res.final.e > 1 ? `v∞ ${fmt.speed(Math.sqrt(-X.MU / res.final.a))}` : 'beyond its sphere of influence', 'bad'];
     return [o.e < J.ECC_APS ? 'Circular orbit' : 'Elliptical orbit', orbitText(o).replace(' circular', '')];
   }
 
@@ -281,21 +281,21 @@
     p.burns.forEach((b, i) => {
       const rb = res.burns[i], on = `data-sel="${i}" aria-pressed="${S.sel === i}"`;
       if (rb.drop) {
-        h += `<li><span class="coast short"></span><button class="step drop${rb.done ? '' : ' lost'}" ${on}><span><b>Drop stage</b><small>${rb.unreachable ? 'never reached' : rb.done ? stages[rb.stage].name.toLowerCase() : 'nothing left to drop'}</small></span></button></li>`;
+        h += `<li><span class="coast short"></span><button class="step drop${rb.done ? '' : ' lost'}" ${on}><span><b>Stage separation</b><small>${rb.unreachable ? 'never reached' : rb.done ? stages[rb.stage].name.toLowerCase() : 'nothing left to separate'}</small></span></button></li>`;
         return;
       }
       const free = !rb.unreachable && isFree(b), at = rb.unreachable ? null : anchorOf(b, rb);
       const kind = rb.unreachable || free ? 'Burn' : rb.params.pro > 4e-4 ? 'Prograde burn' : rb.params.pro < -4e-4 ? 'Retrograde burn' : 'Burn';
-      const size = rb.unreachable ? '' : modeOf(b) === 'fuel' ? `${fmt.mass(rb.fuelCmd)} of fuel` : modeOf(b) === 'time' ? `engine on ${fmt.time(Math.max(1, rb.fuelCmd / rb.mdot))}` : free ? fmt.dv(rb.cmd) : fmt.dvSigned(rb.params.pro);
-      const sub = rb.unreachable ? 'never reached' : rb.short ? `${fmt.dv(rb.got)}, out of fuel` : size + (at === 'apo' || at === 'peri' ? ` at ${anchorWords[at]}` : '');
+      const size = rb.unreachable ? '' : modeOf(b) === 'fuel' ? `${fmt.mass(rb.fuelCmd)} of propellant` : modeOf(b) === 'time' ? `${fmt.time(Math.max(1, rb.fuelCmd / rb.mdot))} burn` : free ? fmt.dv(rb.cmd) : fmt.dvSigned(rb.params.pro);
+      const sub = rb.unreachable ? 'never reached' : rb.short ? `${fmt.dv(rb.got)}, out of propellant` : size + (at === 'apo' || at === 'peri' ? ` at ${anchorWords[at]}` : '');
       const wait = rb.unreachable ? '' : res.legs[rb.legIndex].dt < 1 ? 'no wait' : `coast ${fmt.time(res.legs[rb.legIndex].dt)}`;
       h += `<li><span class="coast"><span>${wait}</span></span>`;
       h += `<button class="step${rb.unreachable ? ' lost' : ''}${rb.short ? ' short' : ''}" ${on}><span class="dot">${rb.n}</span><span><b>${kind}</b><small>${sub}</small></span></button></li>`;
     });
-    const [what, detail] = outcome(), canDrop = p.burns.filter((b) => b.kind === 'drop').length < stages.length - 1;
+    const [what, detail, tone] = outcome(), canDrop = p.burns.filter((b) => b.kind === 'drop').length < stages.length - 1;
     h += `<li><span class="coast short"></span><button class="step add" id="add"><span class="plus">+</span>Add burn</button>`;
-    if (canDrop) h += `<button class="step add" id="add-drop" style="margin-left:8px"><span class="plus">+</span>Drop stage</button>`;
-    h += `</li><li><span class="coast"></span><span class="step result"><span><b>${what}</b><small>${detail}</small></span></span></li>`;
+    if (canDrop) h += `<button class="step add" id="add-drop" style="margin-left:8px"><span class="plus">+</span>Stage separation</button>`;
+    h += `</li><li><span class="coast"></span><span class="step result${tone ? ' ' + tone : ''}"><span><b>${what}</b><small>${detail}</small></span></span></li>`;
     $('strip').innerHTML = h;
   }
 
@@ -315,7 +315,7 @@
       }
       if (S.more) groups.push(`<div class="group"><span class="group-name">Engines</span><div class="stats" id="engines"></div></div>`);
       ed.innerHTML = `<div class="rowA"><div class="lead-box"><b class="lead" id="craft"></b><span class="group-foot" id="payload"></span></div>
-        <div class="stats">${stat('s-orbit', 'Orbit')}${stat('s-speed', 'Speed')}${stat('s-lap', 'One lap')}${stat('s-mass', 'Mass')}</div><span class="spacer"></span>${moreButton()}</div>
+        <div class="stats">${stat('s-orbit', 'Orbit')}${stat('s-speed', 'Speed')}${stat('s-lap', 'Period')}${stat('s-mass', 'Mass')}</div><span class="spacer"></span>${moreButton()}</div>
         ${groups.length ? `<div class="rowB">${groups.join('')}</div>` : ''}`;
       return;
     }
@@ -325,23 +325,23 @@
     }
     const groups = [];
     if (shown('where', b)) groups.push(`<div class="group"><span class="group-name">Where</span>
-      <div class="seg" role="group" aria-label="Where the burn happens"><button data-anchor="peri">Periapsis</button><button data-anchor="apo">Apoapsis</button><button data-anchor="an" title="Where the orbit crosses the equator heading north">Equator ↑</button><button data-anchor="dn" title="Where the orbit crosses the equator heading south">Equator ↓</button><button data-anchor="free">Elsewhere</button></div>
-      <div class="laps">Coast <button class="nudge sm" data-coast="-1" aria-label="Coast less first">−</button><input class="num tiny" id="n-coast" aria-label="How far to coast before this burn"><button class="nudge sm" data-coast="1" aria-label="Coast more first">+</button><span class="seg mini" role="group" aria-label="Coast unit"><button data-coast-unit="laps">laps</button><button data-coast-unit="deg">deg</button></span></div></div>`);
+      <div class="seg" role="group" aria-label="Where the burn happens"><button data-anchor="peri">Periapsis</button><button data-anchor="apo">Apoapsis</button><button data-anchor="an" title="Ascending node: where the orbit crosses the equator heading north">Asc. node</button><button data-anchor="dn" title="Descending node: where the orbit crosses the equator heading south">Desc. node</button><button data-anchor="free">Elsewhere</button></div>
+      <div class="laps">Coast <button class="nudge sm" data-coast="-1" aria-label="Coast less first">−</button><input class="num tiny" id="n-coast" aria-label="How far to coast before this burn"><button class="nudge sm" data-coast="1" aria-label="Coast more first">+</button><span class="seg mini" role="group" aria-label="Coast unit"><button data-coast-unit="laps">orbits</button><button data-coast-unit="deg">deg</button></span></div></div>`);
     if (shown('hold', b)) groups.push(`<div class="group"><div class="holds">
-      ${holdField('dv', 'Delta-v', 'Hold delta-v fixed when earlier steps change')}${holdField('fuel', 'Fuel', 'Hold the fuel burned fixed when earlier steps change')}${holdField('time', 'Engine on', 'Hold the engine time fixed when earlier steps change')}</div>
+      ${holdField('dv', 'Delta-v', 'Hold delta-v fixed when earlier steps change')}${holdField('fuel', 'Propellant', 'Hold the propellant burned fixed when earlier steps change')}${holdField('time', 'Burn time', 'Hold the burn time fixed when earlier steps change')}</div>
       <span class="group-foot" id="hold-note"></span></div>`);
-    if (shown('dirs', b)) groups.push(`<div class="group"><div class="holds">${numField('n-pro', 'Prograde')}${numField('n-rad', 'Radial')}${numField('n-turn', 'Plane turn')}</div>
+    if (shown('dirs', b)) groups.push(`<div class="group"><div class="holds">${numField('n-pro', 'Prograde')}${numField('n-rad', 'Radial')}${numField('n-turn', 'Plane change')}</div>
       <span class="group-foot"><span id="dir-note"></span> <button class="link" id="straight">Back to straight ahead</button></span></div>`);
     ed.innerHTML = `<div class="rowA">
         <div class="thrust"><button class="nudge" data-nudge="-1" aria-label="A little less">−</button><input type="range" class="warm" id="amt" min="-1000" max="1000" step="1" aria-label="Burn size"><button class="nudge" data-nudge="1" aria-label="A little more">+</button>
-          <span class="ends" id="ends"><span>slow down</span><span>speed up</span></span></div>
+          <span class="ends" id="ends"><span>retrograde</span><span>prograde</span></span></div>
         <input class="num main" id="n-main" aria-label="Burn size">
         <div class="stats">${stat('s-where', 'Where')}${stat('s-speed', 'Speed')}${stat('s-tilt', 'Inclination')}</div>
         <span class="group-foot" id="burn-note"></span><span class="spacer"></span>${moreButton()}${TRASH}</div>
       ${groups.length ? `<div class="rowB">${groups.join('')}</div>` : ''}`;
   }
 
-  const HOLD_NOTE = { dv: 'Held: delta-v. Fuel and engine time follow.', fuel: 'Held: fuel. Delta-v follows the craft’s mass.', time: 'Held: engine time. Delta-v follows mass.' };
+  const HOLD_NOTE = { dv: 'Held: delta-v. Propellant and burn time follow.', fuel: 'Held: propellant. Delta-v follows the craft’s mass.', time: 'Held: burn time. Delta-v follows mass.' };
   function syncEditor() {
     const p = plan(), v = V(), set = (id, t) => { if ($(id)) $(id).textContent = t; }, active = document.activeElement;
     const b = p.burns[S.sel], rb = res.burns[S.sel];
@@ -349,13 +349,13 @@
       const o = res.start, mass = v.payload + v.stages.reduce((m, s, k) => m + s.dry + res.stages[k].loaded, 0);
       set('craft', v.name); set('payload', v.payload ? `carrying a ${fmt.mass(v.payload)} ${v.cargo}` : '');
       set('s-orbit', orbitText(o)); set('s-speed', fmt.speed(X.len(X.stateAt(o, o.nu).v))); set('s-lap', fmt.time(o.period)); set('s-mass', fmt.mass(mass));
-      if ($('engines')) $('engines').innerHTML = v.stages.map((s) => `<div><span>${s.name}</span><b>${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : 1)} kN` : `${num(s.thrust * 0.224809)} lbf`}, ${num(s.isp, 1)} s, ${fmt.mass(s.dry)} empty</b></div>`).join('');
+      if ($('engines')) $('engines').innerHTML = v.stages.map((s) => `<div><span>${s.name}</span><b>${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : s.thrust < 100000 ? 1 : 0)} kN` : `${num(s.thrust * 0.224809)} lbf`}, Isp ${num(s.isp, Number.isInteger(s.isp) ? 0 : 1)} s, ${fmt.mass(s.dry)} dry</b></div>`).join('');
       return;
     }
     if (rb.drop) {
       const s = v.stages[rb.stage];
       set('drop-text', rb.unreachable ? 'The craft never gets here. An earlier step ends the journey.' : !rb.done ? 'There is no further stage to switch to, so this step does nothing.'
-        : `Lets go of the ${s.name.toLowerCase()}: ${fmt.mass(s.dry)} of structure${rb.wasted > 1 ? ` and ${fmt.mass(rb.wasted)} of unburned fuel` : ''}. The ${v.stages[rb.stage + 1].name.toLowerCase()} takes over.`);
+        : `Separates the ${s.name.toLowerCase()}: ${fmt.mass(s.dry)} of dry mass${rb.wasted > 1 ? ` and ${fmt.mass(rb.wasted)} of unburned propellant` : ''}. The ${v.stages[rb.stage + 1].name.toLowerCase()} takes over.`);
       return;
     }
     const mode = modeOf(b), dead = rb.unreachable, closed = closedBefore(rb), at = dead ? null : anchorOf(b, rb), nodes = !dead && X.nodeNus(rb.before);
@@ -372,7 +372,7 @@
     if (dead) { set('s-where', '–'); set('s-speed', '–'); set('burn-note', 'The craft never gets here. An earlier step ends the journey.'); return; }
     $('amt').min = isFree(b) ? 0 : -1000; $('ends').style.visibility = isFree(b) ? 'hidden' : '';
     if (active !== $('amt') || !inGesture) $('amt').value = slide(rb, mode).from(sizeOf(b, rb, mode));
-    set('s-where', `${at ? anchorWords[at].replace(/^./, (c) => c.toUpperCase()) + ', ' : ''}${fmt.dist(rb.alt)} up`);
+    set('s-where', `${at ? anchorWords[at].replace(/^./, (c) => c.toUpperCase()) + ', ' : ''}${fmt.dist(rb.alt)} altitude`);
     set('s-speed', `${num(U().dist * rb.speed0, 2)} → ${fmt.speed(rb.speed1)}`);
     const turned = Math.abs(rb.after.inc - rb.before.inc) > 0.02 * D;
     $('s-tilt-box').hidden = !turned;
@@ -381,7 +381,7 @@
     $('burn-note').className = 'group-foot' + (rb.short ? ' bad' : '');
     set('burn-note', rb.short ? `Asked for ${fmt.dv(rb.cmd)}, got ${fmt.dv(rb.got)}.` : circular ? 'Makes the orbit circular.' : '');
     set('hold-note', HOLD_NOTE[mode]);
-    set('dir-note', 'Radial points away from Earth. Plane turn swings the path sideways.');
+    set('dir-note', 'Radial points away from Earth. Plane change swings the path sideways.');
     if ($('straight')) $('straight').hidden = !isFree(b);
   }
 
@@ -408,10 +408,10 @@
     } else if (short) {
       cls = 'bad';
       html = short.spent && short.stage < stages.length - 1
-        ? `Burn ${short.n} runs dry: the ${stages[short.stage].name.toLowerCase()} is empty. Add a Drop stage step before it to light the next one.`
-        : `Burn ${short.n} runs out of fuel partway. Load more fuel, or ask for less.`;
+        ? `Burn ${short.n} runs dry: the ${stages[short.stage].name.toLowerCase()} is empty. Add a Stage separation step before it to light the next stage.`
+        : `Burn ${short.n} runs out of propellant partway. Load more, or ask for less.`;
     } else if (res.status === 'reentry' && !(m.target && m.target.reentry)) { cls = 'bad'; html = 'This path dips into the atmosphere and does not come back out.'; }
-    else if (res.status === 'escape') html = 'This path leaves Earth and does not come back.';
+    else if (res.status === 'escape') html = res.final.e > 1 ? 'This path is faster than Earth’s escape speed. It leaves and does not come back.' : 'This path climbs beyond Earth’s sphere of influence, where the Sun’s pull takes over. It is not followed further.';
     else if (m.status) html = `${m.hint}<span>${m.status(res)}</span>`;
     note.className = 'note ' + cls; note.innerHTML = html;
     $('onward').hidden = !(chk && chk.ok && S.mi < J.MISSIONS.length - 1);
@@ -431,11 +431,11 @@
     if (!mission().target) {
       if (pick.options.length !== Object.keys(J.VEHICLES).length) pick.innerHTML = Object.keys(J.VEHICLES).map((k) => `<option value="${k}">${J.VEHICLES[k].name}</option>`).join('');
       pick.value = p.vehicle;
-      $('craft-facts').textContent = stages.map((s) => `${many ? s.name + ': ' : ''}${fmt.mass(s.dry)} empty, ${fmt.mass(s.propMax)} of fuel, ${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : 1)} kN` : `${num(s.thrust * 0.224809)} lbf`}, ${num(s.isp, 1)} s`).join('. ') + '.';
+      $('craft-facts').textContent = stages.map((s) => `${many ? s.name + ': ' : ''}${fmt.mass(s.dry)} dry, ${fmt.mass(s.propMax)} propellant, ${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : s.thrust < 100000 ? 1 : 0)} kN` : `${num(s.thrust * 0.224809)} lbf`}, Isp ${num(s.isp, Number.isInteger(s.isp) ? 0 : 1)} s`).join('. ') + '.';
     }
     f.max = stages[S.tank].propMax;
     if (document.activeElement !== f || !inGesture) f.value = p.fuel[S.tank];
-    $('tank-name').textContent = many ? 'Fuel' : 'Fuel loaded';
+    $('tank-name').textContent = 'Propellant';
     $('tanks').hidden = !many;
     if (many) $('tanks').innerHTML = stages.map((s, k) => `<button data-tank="${k}" aria-pressed="${k === S.tank}" title="${s.name}">${k + 1}</button>`).join('');
     const live = res.burns.filter((b) => !b.drop && !b.unreachable);

@@ -110,8 +110,10 @@
         for (const l of res.legs) if (l.body === 'earth') need = Math.max(need, Math.min(l.orbit.e < 1 ? l.orbit.ra : Infinity, EARTH_CAP));
         for (const rb of res.burns) if (!rb.drop && !rb.unreachable && sceneOfBurn(rb) === 'earth') need = Math.max(need, X.len(rb.r) * 1.05);
       } else if (scene === 'journey') {
-        // Two settings only, so the picture stays put while a path is being adjusted.
-        need = res.legs.some((l) => l.body === 'earth' && l.hops === 0 && l.orbit.e < 1 && l.orbit.ra > M.a * 1.05 && l.orbit.ra < M.a * 1.5) ? M.a * 1.24 : M.a * 1.04;
+        // A few settings only, so the picture stays put while a path is being adjusted. It steps back
+        // for a path that climbs past the Moon's orbit, and again for one that leaves or is let go.
+        const end = res.legs[res.legs.length - 1], past = (lo, hi) => res.legs.some((l) => l.body === 'earth' && l.orbit.e < 1 && l.orbit.ra > M.a * lo && l.orbit.ra < M.a * hi && (l.hops === 0 || l === end));
+        need = end.end === 'escape' || end.end === 'again' || past(1.24, 9) ? M.a * 1.5 : past(1.05, 1.24) ? M.a * 1.24 : M.a * 1.04;
       } else {
         const tailMoon = res.legs.filter((l, i) => l.body === 'moon' && i >= res.tail), lastMoon = tailMoon[tailMoon.length - 1];
         if (picked) {
@@ -165,6 +167,37 @@
     }
     const arc = (o, nu0, sweep) => trace(X.arcPoints(o, nu0, sweep, Math.max(12, Math.ceil(sweep / TAU * 240))));
     function circle(c, r) { ctx.beginPath(); ctx.arc(c[0], c[1], r, 0, TAU); }
+    /* A path that fades away. `solid(f, s, p)` says how solid it is, 1 to 0, at share f of its length,
+       screen point s and place p; the fading part is dashed. Returns where it is half gone, with the
+       direction of travel there, to hang an arrowhead or a label on. */
+    function fading(pts, solid, width, color) {
+      let tip = null, run = 0, s0 = toScreen(pts[0]), a0 = solid(0, s0, pts[0]);
+      ctx.lineWidth = width; ctx.strokeStyle = color; ctx.lineCap = 'butt';
+      for (let i = 1; i < pts.length; i++) {
+        const s1 = toScreen(pts[i]), gap = Math.hypot(s1[0] - s0[0], s1[1] - s0[1]), n = Math.max(1, Math.min(60, Math.ceil(gap / 5)));
+        let q0 = s0;
+        for (let k = 1; k <= n; k++) {
+          const u = k / n, f = (i - 1 + u) / (pts.length - 1), q = [s0[0] + (s1[0] - s0[0]) * u, s0[1] + (s1[1] - s0[1]) * u];
+          const a = solid(f, q, X.add(pts[i - 1], X.scale(X.sub(pts[i], pts[i - 1]), u))), len = gap / n, mid = (a + a0) / 2;
+          if (mid > 0.02 && len > 0) {
+            ctx.setLineDash(mid < 0.995 ? [W(7), W(5)] : []); ctx.lineDashOffset = -run;
+            ctx.globalAlpha = mid; ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+          }
+          if (!tip && a0 >= 0.5 && a < 0.5 && gap > 0) tip = { at: q, dir: [(s1[0] - s0[0]) / gap, (s1[1] - s0[1]) / gap], f };
+          run += len; q0 = q; a0 = a;
+        }
+        s0 = s1;
+      }
+      ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      return tip;
+    }
+    function arrowhead(tip, color) {
+      const d = tip.dir, n = [-d[1], d[0]], c = tip.at, k = small ? 4 : 7;
+      ctx.beginPath(); ctx.moveTo(c[0] - d[0] * k + n[0] * k * 0.8, c[1] - d[1] * k + n[1] * k * 0.8); ctx.lineTo(c[0] + d[0] * k * 0.5, c[1] + d[1] * k * 0.5); ctx.lineTo(c[0] - d[0] * k - n[0] * k * 0.8, c[1] - d[1] * k - n[1] * k * 0.8);
+      ctx.lineWidth = W(2.6); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = color; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+    }
+    /* How solid a line stays as it nears the edge of the picture: paths that leave for good fade out there. */
+    const nearEdge = (s) => X.clamp((Math.min(s[0], cam.w - s[0], s[1], cam.h - cam.bottom - s[1]) - (small ? 5 : 12)) / (small ? 30 : 110), 0, 1);
     function ring(centre, radius) { const s = toScreen(centre); circle(s, radius * cam.scale); }
 
     function text(str, x, y, o) {
@@ -184,16 +217,17 @@
       ctx.font = `650 13px ${FONT}`;
       const wide = Math.max(ctx.measureText(title).width, sub ? ctx.measureText(sub).width * 0.95 : 0);
       let best = null;
-      for (const turn of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+      for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {   // outward first, inward (over the paths) last
         const c = Math.cos(a0 + turn), sn = Math.sin(a0 + turn);
         const align = c > 0.35 ? 'left' : c < -0.35 ? 'right' : 'center';
         const x = s[0] + c * g, y = s[1] - sn * g - (Math.abs(c) <= 0.35 ? sn * 14 : 0);
         const left = align === 'left' ? x : align === 'right' ? x - wide : x - wide / 2, box = [left - 4, y - 18, left + wide + 4, y + 18];
         const clash = box[0] < 4 || box[2] > cam.w - 4 || box[1] < 4 || box[3] > cam.h - cam.bottom + 10 || avoid.some((r) => box[0] < r[2] && box[2] > r[0] && box[1] < r[3] && box[3] > r[1]);
-        if (!best || !clash) best = { x, y, align, clash };
+        if (!best || !clash) best = { x, y, align, clash, box };
         if (!clash) break;
       }
       if (strict && best.clash) return false;   // nowhere clear: the caller will try another spot
+      avoid = avoid.concat([best.box]);          // later labels keep clear of this one
       text(title, best.x, best.y - (sub ? 8 : 0), { align: best.align, weight: 650, color: color || C.ink });
       if (sub) text(sub, best.x, best.y + 8, { align: best.align, size: 12, color: C.ink2 });
       return true;
@@ -337,7 +371,7 @@
         const plain = Math.abs(rb.params.rad) < 5e-4;
         let str = plain ? fmt.dvSigned(rb.params.pro) : fmt.dv(rb.cmd);
         if (!rb.short && rb.cmd > 1e-9 && rb.after.e < 0.001) str += '  circular';
-        if (rb.short) str += '  out of fuel';
+        if (rb.short) str += '  out of propellant';
         const side = Math.abs(g.d[0]) > 0.4;
         text(str, g.tip[0] + g.d[0] * (side ? 18 : 22), g.tip[1] + g.d[1] * 22, { align: !side ? 'center' : g.d[0] > 0 ? 'left' : 'right', size: 12.5, weight: 650, color: rb.short ? C.alert : C['burn-ink'] });
       }
@@ -369,9 +403,18 @@
       return L.legPoints(res, l, 'moon', tA, tB, 48);
     }
 
+    let gone = null;   // where the last leg fades out, if it does: { kind, at, dir }
     function drawLegs(st, frame) {
-      const res = st.res;
+      const res = st.res, final = res.legs.length - 1;
+      gone = null;
       ctx.lineJoin = 'round';
+      // The stretch flown in the Moon's sphere of influence glows in the Earth pictures: it is the
+      // part the Moon picture shows, and it begins and ends exactly where gravity hands over.
+      if (frame === 'earth') res.legs.forEach((l) => {
+        if (l.body !== 'moon' || (l.sweep < 1e-6 && l.dt < 1)) return;
+        const pts = legPath(st, l, frame);
+        trace(pts); ctx.lineWidth = W(11); ctx.lineCap = 'round'; ctx.globalAlpha = 0.6; ctx.strokeStyle = C.moon; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+      });
       // Earlier closed orbits: the full shape faintly
       res.legs.forEach((l, i) => {
         if (i >= res.tail || l.body !== frame || !(l.orbit.e < 1 && l.orbit.ra < L.BODY[l.body].edge)) return;
@@ -383,8 +426,22 @@
         if (l.sweep < 1e-6 && l.dt < 1) return;
         const pts = legPath(st, l, frame);
         if (!pts) return;
-        const tail = i >= res.tail;
-        trace(pts); ctx.lineWidth = W(tail ? 3 : 2.2); ctx.strokeStyle = tail ? C.ink : C.ink2; ctx.stroke();
+        const tail = i >= res.tail, wide = W(tail ? 3 : 2.2), color = tail ? C.ink : C.ink2;
+        if (i === final && l.end === 'escape') {
+          // Leaving for good: the line thins out toward the edge of the picture and ends in an arrowhead.
+          const far = (p, f) => (frame === 'earth' ? X.clamp((2.6 * M.a - X.len(p)) / (0.8 * M.a), 0, 1) : X.clamp((1 - f) / 0.3, 0, 1));
+          const tip = fading(pts, (f, s, p) => Math.min(nearEdge(s), far(p, f)), wide, color);
+          if (tip) { arrowhead(tip, color); gone = Object.assign({ kind: 'escape' }, tip); }
+        } else if (i === final && l.end === 'again') {
+          // Heading for a second, unplanned meeting with the Moon: followed part of the way, then let go.
+          const tip = fading(pts, (f) => X.clamp((0.92 - f) / 0.5, 0, 1), wide, color);
+          if (tip) gone = Object.assign({ kind: 'again' }, tip);
+        } else {
+          // In Free flight, an orbit that would not last is dashed.
+          const frail = i === final && l.end === 'loop' && (res.caution === 'crossing' || res.caution === 'barely') && !st.mission.target;
+          if (frail) ctx.setLineDash([W(10), W(6)]);
+          trace(pts); ctx.lineWidth = wide; ctx.strokeStyle = color; ctx.stroke(); ctx.setLineDash([]);
+        }
       });
     }
 
@@ -432,15 +489,17 @@
       });
     }
     /* Labels for a closed orbit that the journey ends in. */
+    const CAUTION = { crossing: 'crosses the Moon’s path', tugged: 'the Moon will reshape it', loose: 'Earth will distort it', barely: 'Earth will pull it away' };
     function orbitLabels(st, o, R, skipPeri, scene) {
       const speed = (r) => fmt.speed(Math.sqrt(o.mu * (2 / r - 1 / o.a)));
+      const warn = st.res.caution && !st.mission.calm ? `  ·  ${CAUTION[st.res.caution]}` : '';
       if (o.e < J.ECC_APS) {
         // At the top of the picture, unless a burn is in the way there.
         let at = null;
         for (const d of [[0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0]]) { const p = X.stateAt(o, X.nuOfArg(o, X.argOf(o, d))).r; if (!at || !nearBurn(st, scene, p, 80)) at = p; if (!nearBurn(st, scene, p, 80)) break; }
-        apsisLabel(at, `Circular  ${fmt.dist(o.a - R)}`, `${speed(o.a)}   one lap ${fmt.time(o.period)}`);
+        apsisLabel(at, `Circular  ${fmt.dist(o.a - R)}`, `${speed(o.a)}   period ${fmt.time(o.period)}${warn}`);
       } else {
-        apsisLabel(X.stateAt(o, Math.PI).r, `Apoapsis  ${fmt.dist(o.ra - R)}`, speed(o.ra));
+        apsisLabel(X.stateAt(o, Math.PI).r, `Apoapsis  ${fmt.dist(o.ra - R)}`, speed(o.ra) + warn);
         if (!skipPeri) apsisLabel(X.stateAt(o, 0).r, `Periapsis  ${fmt.dist(o.rp - R)}`, speed(o.rp));
       }
     }
@@ -450,7 +509,7 @@
       const a = res.approach, first = res.legs[res.tail];
       if (!first || first.body !== 'earth') return null;
       if (first.end === 'soi-in' && a && a.entered) return [`Meets the Moon in ${fmt.time(a.t - first.t0)}`, a.dist < M.R ? 'and hits it' : `passing ${fmt.dist(a.dist - M.R)} above it`];
-      if (first.end === 'escape') return ['Leaves Earth', ''];
+      if (first.end === 'escape') return ['Escapes Earth', res.vinf ? `v∞ ${fmt.speed(res.vinf)}` : ''];
       if (first.orbit.e < 1) return [`Apoapsis  ${fmt.dist(first.orbit.ra - RE)}`, a && !a.entered && a.dist < M.soi * 4 ? `the Moon passes ${fmt.dist(a.dist - M.R)} away` : `reached in ${fmt.time(first.orbit.period / 2)}`];
       return null;
     }
@@ -475,11 +534,12 @@
         const s = toScreen([M.a * Math.cos(at), M.a * Math.sin(at), 0]); text(`Moon’s orbit  ${fmt.dist(M.a)}`, s[0], s[1], { align: 'center', size: 12, color: C.ink3 });
       }
 
-      // Where the Moon's pull takes over, drawn round the place it will be
+      // The Moon's sphere of influence travels with the Moon, so the craft crosses into it in step
+      // with the Moon picture. The ring further on marks where the Moon will be at the closest point.
       const there = a && !a.start ? a.moon : null;
-      if (there && M.soi * cam.scale > 7) {
+      if (M.soi * cam.scale > 7) {
         ctx.setLineDash([1.5, 4]); ctx.lineCap = 'round';
-        ring(there, M.soi); ctx.strokeStyle = C.ink3; ctx.lineWidth = W(1.1); ctx.stroke();
+        ring(moonNow, M.soi); ctx.strokeStyle = C.ink3; ctx.lineWidth = W(1.1); ctx.stroke();
         ctx.setLineDash([]); ctx.lineCap = 'butt';
       }
       drawEarth(simT);
@@ -516,9 +576,13 @@
           dot(s, W(6), BG, chk.ok ? C.target : wants || !e ? C.alert : C.ink, W(2.5));
           if (e && e.speed > 9) {
             const steep = e.angle > J.CORRIDOR[1], shallow = e.angle < J.CORRIDOR[0];
-            label(s, [cam.cx, cam.cy], `Entry  ${fmt.speed(e.speed)}, ${e.angle.toFixed(1)}° down`, steep ? 'too steep' : shallow ? 'too shallow' : 'inside the safe range', steep || shallow ? (wants ? C.alert : C.ink) : C['target-ink']);
-          } else label(s, [cam.cx, cam.cy], 'Reentry', e ? `${fmt.speed(e.speed)}, ${e.angle.toFixed(1)}° down` : '', C.ink);
+            label(s, [cam.cx, cam.cy], `Entry interface  ${fmt.speed(e.speed)}`, `flight-path angle ${e.angle.toFixed(1)}° down: ${steep ? 'too steep' : shallow ? 'too shallow' : 'inside the corridor'}`, steep || shallow ? (wants ? C.alert : C.ink) : C['target-ink']);
+          } else label(s, [cam.cx, cam.cy], 'Reentry', e ? `${fmt.speed(e.speed)}, flight-path angle ${e.angle.toFixed(1)}° down` : '', C.ink);
         }
+      }
+      if (journey && !small && gone) {
+        if (gone.kind === 'escape') label(gone.at, [gone.at[0] - gone.dir[0] * 40, gone.at[1] - gone.dir[1] * 40], 'Escapes Earth', (res.rounded ? 'lunar gravity assist' : 'beyond its sphere of influence') + (res.vinf ? `, v∞ ${fmt.speed(res.vinf)}` : ''), C.ink, 16);
+        else label(gone.at, [cam.cx, cam.cy], 'Meets the Moon again', `after ${fmt.time(last.dt)}: not predicted further`, C.ink, 14);
       }
       // Where a path that runs off the Earth picture is going
       if (!journey && !small) {
@@ -554,7 +618,7 @@
       ctx.setLineDash([1.5, 5]); ctx.lineCap = 'round';
       ring(centre, M.soi); ctx.strokeStyle = C.ink3; ctx.lineWidth = W(1.2); ctx.stroke();
       ctx.setLineDash([]); ctx.lineCap = 'butt';
-      { const s = toScreen([M.soi * Math.cos(0.95), M.soi * Math.sin(0.95), 0]); if (onScreen(s)) text('Moon’s gravity takes over', s[0], s[1], { align: 'center', size: 12, color: C.ink3 }); }
+      { const s = toScreen([M.soi * Math.cos(0.95), M.soi * Math.sin(0.95), 0]); if (onScreen(s)) text('Moon’s sphere of influence', s[0], s[1], { align: 'center', size: 12, color: C.ink3 }); }
 
       // Which way Earth is: at arrival, and turning slowly as days pass
       const tRef = a && !a.start ? (a.entered ? a.tIn : a.t) : 0, toEarth = X.unit(X.scale(L.moonAt(Math.max(simT, tRef), res.moon0).r, -1));
@@ -587,11 +651,11 @@
       res.legs.forEach((l, i) => {
         if (i < res.tail || l.body !== 'moon' || l.end !== 'soi-out') return;
         const o = l.orbit, good = tg && tg.pass && chk.passOk;
-        if (!nearBurn(st, 'moon', X.stateAt(o, 0).r, 24)) apsisLabel(X.stateAt(o, 0).r, `Closest pass  ${fmt.dist(o.rp - M.R)}`, fmt.speed(Math.sqrt(o.mu * (2 / o.rp - 1 / o.a))), good ? C['target-ink'] : C.ink);
+        if (!nearBurn(st, 'moon', X.stateAt(o, 0).r, 24)) apsisLabel(X.stateAt(o, 0).r, `Closest approach  ${fmt.dist(o.rp - M.R)}`, fmt.speed(Math.sqrt(o.mu * (2 / o.rp - 1 / o.a))), good ? C['target-ink'] : C.ink);
       });
       if (a && !a.entered) {
         const p = X.sub(a.r, a.moon);
-        apsisLabel(p, `Closest pass  ${fmt.dist(a.dist - M.R)}`, Math.abs(a.lead) > 1 ? '' : a.lead > 0 ? 'the Moon is ahead of you' : 'the Moon is behind you');
+        apsisLabel(p, `Closest approach  ${fmt.dist(a.dist - M.R)}`, Math.abs(a.lead) > 1 ? '' : a.lead > 0 ? 'the Moon is ahead of you' : 'the Moon is behind you');
       }
 
       drawAdd(st);

@@ -91,7 +91,7 @@
   J.FLIGHTS.push(
     {
       id: 'apollo11', name: 'Apollo 11', when: 'July 1969',
-      blurb: 'The first landing. One burn sends the stack toward where the Moon will be three days later. Two burns behind the Moon brake it into a low orbit, the lander is left behind, and one more burn sends the crew home.',
+      blurb: 'The first landing. Trans-lunar injection sends the stack toward where the Moon will be three days later. Two lunar orbit insertion burns behind the Moon brake it into a low orbit, the lander is left behind, and trans-Earth injection sends the crew home.',
       note: 'Orbits, timings and the 43,570 kg arriving at the Moon are published; the S-IVB’s masses are estimates. The Moon’s orbit is a circle here, and its start is set so this flight meets it. The model’s burns are 3,156, 838, 42 and 1,009 m/s; the real ones were 3,182, 889, 48 and 999. Try skipping the second burn.',
       vehicle: 'apollo', build: apollo11,
       expect: (res, near) => {
@@ -115,8 +115,8 @@
     },
     {
       id: 'chandrayaan3', name: 'Chandrayaan-3', when: 'July and August 2023',
-      blurb: 'India’s lander went the patient way. A small engine fires at the low point of the orbit five times over two weeks, stretching it further each lap. A sixth burn reaches the Moon, and five more there bring a long capture orbit down to a low circle.',
-      note: 'Orbits and laps are the published ones. The Moon’s orbit is a circle here, so the sixth burn reaches 378,000 km, not the real 369,328, and the Moon’s start is set to meet it. The real Moon was near its closest and fastest that week, so the capture burn here is a sixth shorter than the real 1,835 s. Shown flat. The engine’s efficiency is an estimate.',
+      blurb: 'India’s lander went the patient way. A small engine fires at periapsis five times over two weeks, raising the apoapsis further each orbit. A sixth burn reaches the Moon, and five more there bring a long capture orbit down to a low circle.',
+      note: 'Orbits and orbit counts are the published ones. The Moon’s orbit is a circle here, so the sixth burn reaches 378,000 km, not the real 369,328, and the Moon’s start is set to meet it. The real Moon was near its closest and fastest that week, so the capture burn here is a sixth shorter than the real 1,835 s. Shown in one plane. The engine’s specific impulse is an estimate.',
       vehicle: 'chandrayaan3', build: chandrayaan3,
       expect: (res, near) => {
         const b = res.burns.filter((x) => !x.drop);

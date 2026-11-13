@@ -170,6 +170,26 @@ function solved(id, plan, note) {
   truthy('  the tank cannot give much more than it needs', J.fly(p).burns[0].short);
 }
 
+/* ---------- endings that cannot be relied on ---------- */
+{
+  const one = (moon, pro) => L.compute(plan(moon, [burn({ pro })]), V);
+  let r = one(50, 3.16);
+  truthy('a path that comes back to the Moon a second time is not followed further', r.status === 'unsettled' && r.legs[r.legs.length - 1].end === 'again' && r.legs.filter((l) => l.body === 'moon').length === 1);
+  near('  it stops at the edge of the Moon\'s sphere of influence (km)', X.len(X.sub(L.stateAtTime(r, r.duration).r, L.moonAt(r.duration, r.moon0).r)), M.soi, 5);
+  r = one(34.75, 3.2);
+  truthy('a pass that throws the path beyond Earth\'s reach is an escape that rounded the Moon', r.status === 'escape' && r.rounded);
+  r = one(192, 3.25);
+  truthy('a burn past escape speed is an escape with speed to spare', r.status === 'escape' && !r.rounded);
+  near('  its excess speed (km/s)', r.vinf, Math.sqrt((Math.sqrt(MU / (RE + 185)) + r.burns[0].got) ** 2 - 2 * MU / (RE + 185)), 1e-6);   // the stage runs dry a little short of 3,250 m/s
+  r = one(205, 3.135);
+  truthy('an orbit reaching the Moon\'s distance is marked as crossing its path', r.status === 'orbit' && r.caution === 'crossing');
+  truthy('a low Earth orbit carries no caution', one(205, 0.5).caution === null);
+  const lunar = (apo, inc) => L.compute({ start: { body: 'moon', peri: 110, apo, inc, nu: 0 }, moon: 60, fuel: [74000, 18400], burns: [] }, V);
+  truthy('a low lunar orbit carries no caution', lunar(110, 180).status === 'lunar' && lunar(110, 180).caution === null);
+  truthy('a lunar orbit reaching 40,000 km is barely held when it runs with the Moon\'s motion', lunar(40000, 0).caution === 'barely');
+  truthy('  and only loosely held when it runs against it', lunar(40000, 180).caution === 'loose');
+}
+
 /* ---------- famous flights against their published figures ---------- */
 for (const f of J.FLIGHTS) {
   const plan = J.newPlan(f), r = J.fly(plan);

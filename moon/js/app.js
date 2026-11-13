@@ -48,7 +48,7 @@
   const orbitText = (o, R) => (o.e < J.ECC_APS ? `${fmt.dist(o.a - R)} circular` : `${num((o.rp - R) * U().dist)} × ${fmt.dist(o.ra - R)}`);
   // Stage names in the middle of a sentence: lower case, unless the name is a designation.
   const low = (s) => (/^[A-Z0-9][A-Z0-9-]/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
-  const engineText = (s) => `${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : 1)} kN` : `${num(s.thrust * 0.224809)} lbf`}, ${num(s.isp, 1)} s`;
+  const engineText = (s) => `${metric() ? `${num(s.thrust / 1000, s.thrust < 10000 ? 2 : s.thrust < 100000 ? 1 : 0)} kN` : `${num(s.thrust * 0.224809)} lbf`}, Isp ${num(s.isp, Number.isInteger(s.isp) ? 0 : 1)} s`;
 
   /* ---------- history and storage ---------- */
   function save() {
@@ -222,8 +222,8 @@
       dp: () => (coastUnit() === 'deg' ? 1 : 3), step: 1,
       get: () => (coastUnit() === 'deg' ? coastOf(S.sel) / D : coastOf(S.sel) / TAU),
       text: () => { const v = shownValue(FIELDS['n-coast']); return coastUnit() === 'deg' ? fmt.deg(v) : String(Math.round(v * 100) / 100); },
-      set: (x, typed) => {   // "45 deg" or "2 laps" switches the unit as well
-        if (/deg|°/i.test(typed || '')) cur().b.coastUnit = 'deg'; else if (/lap/i.test(typed || '')) cur().b.coastUnit = 'laps';
+      set: (x, typed) => {   // "45 deg" or "2 orbits" switches the unit as well
+        if (/deg|°/i.test(typed || '')) cur().b.coastUnit = 'deg'; else if (/lap|orbit|rev/i.test(typed || '')) cur().b.coastUnit = 'laps';
         setCoast(S.sel, Math.max(0, x) * (coastUnit() === 'deg' ? D : TAU));
       },
     },
@@ -309,19 +309,39 @@
   const anchorOf = (b, rb) => ((b.anchor === 'apo' || b.anchor === 'peri') && rb.before.e > J.ECC_APS ? b.anchor : null);
   function outcome() {
     const o = res.final, e = res.entry;
-    if (res.status === 'reentry') return ['Reentry', e && e.speed > 9 ? `${num(e.angle, 1)}° down at ${fmt.speed(e.speed)}` : 'falls into the atmosphere'];
-    if (res.status === 'impact') return ['Impact', 'hits the Moon'];
-    if (res.status === 'escape') return ['Escape', res.rounded ? 'flung clear of Earth' : 'leaves Earth'];
-    if (res.status === 'lost') return ['Wandering', 'between Earth and the Moon'];
-    if (res.status === 'lunar') return [o.e < J.ECC_APS ? 'Circular lunar orbit' : 'Lunar orbit', orbitText(o, M.R).replace(' circular', '')];
-    return [o.e < J.ECC_APS ? 'Circular orbit' : 'Elliptical orbit', orbitText(o, RE).replace(' circular', '')];
+    if (res.status === 'reentry') return ['Reentry', e && e.speed > 9 ? `${fmt.speed(e.speed)}, ${num(e.angle, 1)}° down` : 'falls into the atmosphere'];
+    if (res.status === 'impact') return ['Lunar impact', 'hits the Moon'];
+    if (res.status === 'escape') return ['Earth escape', res.rounded ? 'by lunar gravity assist' : res.vinf ? `v∞ ${fmt.speed(res.vinf)}` : 'does not come back', 'bad'];
+    if (res.status === 'unsettled') return ['Unstable path', 'meets the Moon again', 'bad'];
+    if (res.status === 'lost') return ['Unstable path', 'between Earth and the Moon', 'bad'];
+    // An orbit the other body would soon undo is called what it is.
+    const frail = !mission().target && (res.caution === 'crossing' || res.caution === 'barely'), tone = frail ? 'bad' : '';
+    if (res.status === 'lunar') return [frail ? 'Unstable lunar orbit' : o.e < J.ECC_APS ? 'Circular lunar orbit' : 'Lunar orbit', orbitText(o, M.R).replace(' circular', ''), tone];
+    return [frail ? 'Unstable orbit' : o.e < J.ECC_APS ? 'Circular orbit' : 'Elliptical orbit', orbitText(o, RE).replace(' circular', ''), tone];
+  }
+  /* A sentence on why a journey's ending cannot be relied on, or null. */
+  function fateNote() {
+    const last = res.legs[res.legs.length - 1];
+    if (res.status === 'unsettled') return `After ${fmt.time(last.dt)} this path meets the Moon a second time. What happens then turns on a few metres per second, so the track is not followed further. Add a burn before then to settle it.`;
+    if (res.status === 'lost') return 'This path keeps passing between Earth and the Moon without settling. It is too sensitive to follow further.';
+    if (res.status === 'escape') {
+      const before = res.legs.filter((l) => l.end === 'soi-in').pop(), assist = res.rounded && before && before.orbit.e < 1;
+      if (res.vinf) return assist ? 'The pass by the Moon left this path faster than Earth’s escape speed: a gravity assist. It leaves the Earth and Moon for good.' : 'This path is faster than Earth’s escape speed. It leaves for good.';
+      return `${assist ? 'The pass by the Moon lifted' : 'This burn lifts'} the far point of this path beyond Earth’s sphere of influence, some ${fmt.dist(X.SOI)} out, where the Sun’s pull takes over. It is not followed further.`;
+    }
+    if (mission().target) return null;   // missions keep to their own hints; the picture still marks the orbit
+    if (res.caution === 'crossing') return 'This orbit crosses the Moon’s path. On some later orbit the Moon will be there, and will change it.';
+    if (res.caution === 'tugged') return 'An orbit this high does not keep its shape: the Moon’s pull shifts the low point by hundreds of kilometres within a few orbits (a third-body perturbation, which this model leaves out).';
+    if (res.caution === 'loose') return 'This far from the Moon, Earth’s pull distorts the orbit from one orbit to the next (a third-body perturbation, which this model leaves out).';
+    if (res.caution === 'barely') return 'This orbit reaches most of the way to the edge of the Moon’s sphere of influence. In reality Earth would pull the craft away within a few orbits.';
+    return null;
   }
   /* What may still be let go of: a spent stage, then (when the mission or the player allows it) the cargo. */
   function nextDrop() {
     const p = plan(), v = V(), drops = p.burns.filter((b) => b.kind === 'drop').length;
-    if (drops < v.stages.length - 1) return 'Drop stage';
+    if (drops < v.stages.length - 1) return 'Stage separation';
     const allowed = !mission().target || S.more || (mission().show || []).includes('leave');
-    return drops === v.stages.length - 1 && v.payload > 0 && allowed ? v.release || 'Release payload' : null;
+    return drops === v.stages.length - 1 && v.payload > 0 && allowed ? v.release || 'Deploy payload' : null;
   }
 
   function renderStrip() {
@@ -330,24 +350,24 @@
     p.burns.forEach((b, i) => {
       const rb = res.burns[i], on = `data-sel="${i}" aria-pressed="${S.sel === i}"`;
       if (rb.drop) {
-        const what = rb.cargo ? v.release || 'Release payload' : 'Drop stage';
-        const sub = rb.unreachable ? 'never reached' : rb.cargo ? `${fmt.mass(rb.let)} ${v.cargo}`.trim() : rb.done ? low(stages[rb.stage].name) : 'nothing left to drop';
+        const what = rb.cargo ? v.release || 'Deploy payload' : 'Stage separation';
+        const sub = rb.unreachable ? 'never reached' : rb.cargo ? `${fmt.mass(rb.let)} ${v.cargo}`.trim() : rb.done ? low(stages[rb.stage].name) : 'nothing left to separate';
         h += `<li><span class="coast short"></span><button class="step drop${rb.done ? '' : ' lost'}" ${on}><span><b>${what}</b><small>${sub}</small></span></button></li>`;
         return;
       }
       const free = !rb.unreachable && isFree(b), at = rb.unreachable ? null : anchorOf(b, rb), moon = (rb.body || b.body) === 'moon';
       const kind = rb.unreachable || free ? 'Burn' : rb.params.pro > 4e-4 ? 'Prograde burn' : rb.params.pro < -4e-4 ? 'Retrograde burn' : 'Burn';
-      const size = rb.unreachable ? '' : modeOf(b) === 'fuel' ? `${fmt.mass(rb.fuelCmd)} of fuel` : modeOf(b) === 'time' ? `engine on ${fmt.time(Math.max(1, rb.fuelCmd / rb.mdot))}` : free ? fmt.dv(rb.cmd) : fmt.dvSigned(rb.params.pro);
+      const size = rb.unreachable ? '' : modeOf(b) === 'fuel' ? `${fmt.mass(rb.fuelCmd)} of propellant` : modeOf(b) === 'time' ? `${fmt.time(Math.max(1, rb.fuelCmd / rb.mdot))} burn` : free ? fmt.dv(rb.cmd) : fmt.dvSigned(rb.params.pro);
       const where = at ? ` at ${anchorWords[at]}` : moon ? ' at the Moon' : '';
-      const sub = rb.unreachable ? 'never reached' : rb.short ? `${fmt.dv(rb.got)}, out of fuel` : size + where;
+      const sub = rb.unreachable ? 'never reached' : rb.short ? `${fmt.dv(rb.got)}, out of propellant` : size + where;
       const wait = rb.unreachable ? '' : rb.t - prevTime(i) < 1 ? 'no wait' : `coast ${fmt.time(rb.t - prevTime(i))}`;
       h += `<li><span class="coast"><span>${wait}</span></span>`;
       h += `<button class="step${rb.unreachable ? ' lost' : ''}${rb.short ? ' short' : ''}" ${on}><span class="dot">${rb.n}</span><span><b>${kind}</b><small>${sub}</small></span></button></li>`;
     });
-    const [what, detail] = outcome(), drop = nextDrop();
+    const [what, detail, tone] = outcome(), drop = nextDrop();
     h += `<li><span class="coast short"></span><button class="step add" id="add"><span class="plus">+</span>Add burn</button>`;
     if (drop) h += `<button class="step add" id="add-drop" style="margin-left:8px"><span class="plus">+</span>${drop}</button>`;
-    h += `</li><li><span class="coast"></span><span class="step result"><span><b>${what}</b><small>${detail}</small></span></span></li>`;
+    h += `</li><li><span class="coast"></span><span class="step result${tone ? ' ' + tone : ''}"><span><b>${what}</b><small>${detail}</small></span></span></li>`;
     $('strip').innerHTML = h;
   }
   /* A long chain scrolls. Keep its end, the outcome, in sight whenever the selected step can stay in sight too. */
@@ -374,11 +394,11 @@
       S.sel = -1;
       const free = !mission().target, groups = [];
       if (free) {
-        groups.push(`<div class="group"><span class="group-name">Starting orbit</span><div class="holds">${numField('n-peri', 'Periapsis')}${numField('n-apo', 'Apoapsis')}${numField('n-moon', 'Moon’s place', 'Where the Moon is on its orbit when the journey starts, in degrees round from the right')}</div></div>`);
+        groups.push(`<div class="group"><span class="group-name">Starting orbit</span><div class="holds">${numField('n-peri', 'Periapsis')}${numField('n-apo', 'Apoapsis')}${numField('n-moon', 'Moon’s position', 'Where the Moon is on its orbit when the journey starts, in degrees round from the right')}</div></div>`);
       }
       if (S.more) groups.push(`<div class="group"><span class="group-name">Engines</span><div class="stats" id="engines"></div></div>`);
       ed.innerHTML = `<div class="rowA"><div class="lead-box"><b class="lead" id="craft"></b><span class="group-foot" id="payload"></span></div>
-        <div class="stats">${stat('s-orbit', 'Orbit')}${stat('s-speed', 'Speed')}${stat('s-lap', 'One lap')}${stat('s-mass', 'Mass')}</div><span class="spacer"></span>${moreButton()}</div>
+        <div class="stats">${stat('s-orbit', 'Orbit')}${stat('s-speed', 'Speed')}${stat('s-lap', 'Period')}${stat('s-mass', 'Mass')}</div><span class="spacer"></span>${moreButton()}</div>
         ${groups.length ? `<div class="rowB">${groups.join('')}</div>` : ''}`;
       return;
     }
@@ -389,22 +409,22 @@
     const groups = [];
     if (shown('where', b)) groups.push(`<div class="group"><span class="group-name">Where</span>
       <div class="seg" role="group" aria-label="Where the burn happens"><button data-anchor="peri">Periapsis</button><button data-anchor="apo">Apoapsis</button><button data-anchor="free">Elsewhere</button></div>
-      <div class="laps">Coast <button class="nudge sm" data-coast="-1" aria-label="Coast less first">−</button><input class="num tiny" id="n-coast" aria-label="How far to coast before this burn"><button class="nudge sm" data-coast="1" aria-label="Coast more first">+</button><span class="seg mini" role="group" aria-label="Coast unit"><button data-coast-unit="laps">laps</button><button data-coast-unit="deg">deg</button></span></div></div>`);
+      <div class="laps">Coast <button class="nudge sm" data-coast="-1" aria-label="Coast less first">−</button><input class="num tiny" id="n-coast" aria-label="How far to coast before this burn"><button class="nudge sm" data-coast="1" aria-label="Coast more first">+</button><span class="seg mini" role="group" aria-label="Coast unit"><button data-coast-unit="laps">orbits</button><button data-coast-unit="deg">deg</button></span></div></div>`);
     if (shown('hold', b)) groups.push(`<div class="group"><div class="holds">
-      ${holdField('dv', 'Delta-v', 'Hold delta-v fixed when earlier steps change')}${holdField('fuel', 'Fuel', 'Hold the fuel burned fixed when earlier steps change')}${holdField('time', 'Engine on', 'Hold the engine time fixed when earlier steps change')}</div>
+      ${holdField('dv', 'Delta-v', 'Hold delta-v fixed when earlier steps change')}${holdField('fuel', 'Propellant', 'Hold the propellant burned fixed when earlier steps change')}${holdField('time', 'Burn time', 'Hold the burn time fixed when earlier steps change')}</div>
       <span class="group-foot" id="hold-note"></span></div>`);
     if (shown('dirs', b)) groups.push(`<div class="group"><div class="holds">${numField('n-pro', 'Prograde')}${numField('n-rad', 'Radial')}</div>
       <span class="group-foot"><span id="dir-note"></span> <button class="link" id="straight">Back to straight ahead</button></span></div>`);
     ed.innerHTML = `<div class="rowA">
         <div class="thrust"><button class="nudge" data-nudge="-1" aria-label="A little less">−</button><input type="range" class="warm" id="amt" min="-1000" max="1000" step="1" aria-label="Burn size"><button class="nudge" data-nudge="1" aria-label="A little more">+</button>
-          <span class="ends" id="ends"><span>slow down</span><span>speed up</span></span></div>
+          <span class="ends" id="ends"><span>retrograde</span><span>prograde</span></span></div>
         <input class="num main" id="n-main" aria-label="Burn size">
         <div class="stats">${stat('s-where', 'Where')}${stat('s-speed', 'Speed')}</div>
         <span class="group-foot" id="burn-note"></span><span class="spacer"></span>${moreButton()}${TRASH}</div>
       ${groups.length ? `<div class="rowB">${groups.join('')}</div>` : ''}`;
   }
 
-  const HOLD_NOTE = { dv: 'Held: delta-v. Fuel and engine time follow.', fuel: 'Held: fuel. Delta-v follows the craft’s mass.', time: 'Held: engine time. Delta-v follows mass.' };
+  const HOLD_NOTE = { dv: 'Held: delta-v. Propellant and burn time follow.', fuel: 'Held: propellant. Delta-v follows the craft’s mass.', time: 'Held: burn time. Delta-v follows mass.' };
   const NEVER = 'The craft never gets here. An earlier step sends it somewhere else.';
   function syncEditor() {
     const p = plan(), v = V(), set = (id, t) => { if ($(id)) $(id).textContent = t; }, active = document.activeElement;
@@ -413,14 +433,14 @@
       const o = res.start, mass = v.payload + v.stages.reduce((m, s, k) => m + s.dry + res.stages[k].loaded, 0);
       set('craft', v.name); set('payload', v.payload ? `carrying a ${fmt.mass(v.payload)} ${v.cargo}` : '');
       set('s-orbit', orbitText(o, radiusOf(res.startBody)) + (res.startBody === 'moon' ? ', Moon' : '')); set('s-speed', fmt.speed(X.len(X.stateAt(o, o.nu).v))); set('s-lap', fmt.time(o.period)); set('s-mass', fmt.mass(mass));
-      if ($('engines')) $('engines').innerHTML = v.stages.map((s) => `<div><span>${s.name}</span><b>${engineText(s)}, ${fmt.mass(s.dry)} empty</b></div>`).join('');
+      if ($('engines')) $('engines').innerHTML = v.stages.map((s) => `<div><span>${s.name}</span><b>${engineText(s)}, ${fmt.mass(s.dry)} dry</b></div>`).join('');
       return;
     }
     if (rb.drop) {
       const s = v.stages[rb.stage];
-      set('drop-text', rb.unreachable ? NEVER : !rb.done ? 'There is nothing further to let go of, so this step does nothing.'
-        : rb.cargo ? `Lets go of the ${fmt.mass(rb.let)} ${v.cargo}. Every burn after this pushes a lighter craft, so the same fuel goes further.`
-          : `Lets go of the ${low(s.name)}: ${fmt.mass(s.dry)} of structure${rb.wasted > 1 ? ` and ${fmt.mass(rb.wasted)} of unburned fuel` : ''}. The ${low(v.stages[rb.stage + 1].name)} takes over.`);
+      set('drop-text', rb.unreachable ? NEVER : !rb.done ? 'There is nothing further to separate, so this step does nothing.'
+        : rb.cargo ? `Separates the ${fmt.mass(rb.let)} ${v.cargo}. Every burn after this pushes a lighter craft, so the same propellant gives more delta-v.`
+          : `Separates the ${low(s.name)}: ${fmt.mass(s.dry)} of dry mass${rb.wasted > 1 ? ` and ${fmt.mass(rb.wasted)} of unburned propellant` : ''}. The ${low(v.stages[rb.stage + 1].name)} takes over.`);
       return;
     }
     const mode = modeOf(b), dead = rb.unreachable, closed = closedBefore(rb), at = dead ? null : anchorOf(b, rb);
@@ -436,7 +456,7 @@
     const moon = rb.body === 'moon';
     $('amt').min = isFree(b) ? 0 : -1000; $('ends').style.visibility = isFree(b) ? 'hidden' : '';
     if (active !== $('amt') || !inGesture) $('amt').value = slide(rb, mode).from(sizeOf(b, rb, mode));
-    set('s-where', `${at ? anchorWords[at].replace(/^./, (c) => c.toUpperCase()) + ', ' : ''}${fmt.dist(rb.alt)} ${moon ? 'above the Moon' : 'up'}`);
+    set('s-where', `${at ? anchorWords[at].replace(/^./, (c) => c.toUpperCase()) + ', ' : ''}${fmt.dist(rb.alt)} ${moon ? 'above the Moon' : 'altitude'}`);
     set('s-speed', `${num(U().dist * rb.speed0, 2)} → ${fmt.speed(rb.speed1)}`);
     const circular = rb.cmd > 1e-9 && rb.after.e < 0.001 && !rb.short;
     $('burn-note').className = 'group-foot' + (rb.short ? ' bad' : '');
@@ -460,8 +480,8 @@
     $('title').textContent = flight ? flight.name : m.title;
     $('goal').textContent = flight ? flight.when : m.goal;
     const short = res.burns.find((b) => b.short);
-    const st = m.status && m.status(res);
-    let cls = '', html = m.hint;
+    const st = m.status && m.status(res), fate = fateNote();
+    let cls = '', html = !m.target && fate ? fate : m.hint;
     if (flight) html = `${flight.blurb}<span>${flight.note}</span>`;
     else if (chk && chk.ok) {
       cls = 'good';
@@ -470,14 +490,14 @@
     } else if (short) {
       cls = 'bad';
       html = short.spent && short.stage < stages.length - 1
-        ? `Burn ${short.n} runs dry: the ${low(stages[short.stage].name)} is empty. Add a Drop stage step before it to light the next one.`
-        : `Burn ${short.n} runs out of fuel partway. ${m.target ? 'Ask for less, or spend less earlier.' : 'Load more fuel, or ask for less.'}`;
+        ? `Burn ${short.n} runs dry: the ${low(stages[short.stage].name)} is empty. Add a Stage separation step before it to light the next stage.`
+        : `Burn ${short.n} runs out of propellant partway. ${m.target ? 'Ask for less, or spend less earlier.' : 'Load more, or ask for less.'}`;
     } else if (chk && chk.slow) {
-      html = `${m.hint}<span>That reaches the entry slot, but the long way round: ${fmt.time(res.duration)}. Leave on the other side of the Moon to fall straight home.</span>`;
+      html = `${m.hint}<span>That reaches the entry corridor, but the long way round: ${fmt.time(res.duration)}. Leave on the other side of the Moon to fall straight home.</span>`;
     } else if (st) { html = `${m.hint}<span${st.bad ? ' class="bad"' : ''}>${st.text.replace('{d}', fmt.dist(st.d || 0))}</span>`; }
     else if (res.status === 'impact') { cls = 'bad'; html = 'This path hits the Moon.'; }
     else if (res.status === 'reentry' && m.target) { cls = 'bad'; html = 'This path falls back into Earth’s atmosphere.'; }
-    else if (res.status === 'escape' && m.target) html = 'This path leaves Earth and does not come back.';
+    else if (fate && m.target) html = `${m.hint}<span>${fate}</span>`;
     note.className = 'note ' + cls; note.innerHTML = html;
     $('onward').hidden = !(chk && chk.ok && S.mi < J.MISSIONS.length - 1);
     $('prev').disabled = S.mi === 0; $('next').disabled = S.mi === J.MISSIONS.length - 1;
@@ -498,11 +518,11 @@
     if (!mission().target) {
       if (pick.options.length !== Object.keys(J.VEHICLES).length) pick.innerHTML = Object.keys(J.VEHICLES).map((k) => `<option value="${k}">${J.VEHICLES[k].name}</option>`).join('');
       pick.value = p.vehicle;
-      $('craft-facts').textContent = stages.map((s) => `${many ? s.name + ': ' : ''}${fmt.mass(s.dry)} empty, ${fmt.mass(s.propMax)} of fuel, ${engineText(s)}`).join('. ') + '.';
+      $('craft-facts').textContent = stages.map((s) => `${many ? s.name + ': ' : ''}${fmt.mass(s.dry)} dry, ${fmt.mass(s.propMax)} propellant, ${engineText(s)}`).join('. ') + '.';
     }
     f.max = stages[S.tank].propMax;
     if (document.activeElement !== f || !inGesture) f.value = p.fuel[S.tank];
-    $('tank-name').textContent = many ? 'Fuel' : 'Fuel loaded';
+    $('tank-name').textContent = 'Propellant';
     $('tanks').hidden = !many;
     if (many) $('tanks').innerHTML = stages.map((s, k) => `<button data-tank="${k}" aria-pressed="${k === S.tank}" title="${s.name}">${k + 1}</button>`).join('');
     const live = res.burns.filter((b) => !b.drop && !b.unreachable);
@@ -823,6 +843,7 @@
   function setPace() {
     let total = res.duration;
     const last = res.legs[res.legs.length - 1];
+    if (last.end === 'again') total = last.t0 + X.coastTime(last.orbit, last.nu0, Math.min(last.sweep, TAU) * 0.7);
     if (last.end === 'escape') {   // a path leaving for good is followed only a little past the Moon's orbit
       const nuEdge = X.nuAtRadius(last.orbit, M.a * 1.5);
       if (nuEdge != null && nuEdge > last.nu0) total = last.t0 + X.coastTime(last.orbit, last.nu0, nuEdge - last.nu0);
