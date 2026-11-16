@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Breeze: Launch</title>
+  <link rel="icon" href="icon/orbital-breeze.ico" sizes="any">
+  <link rel="icon" href="icon/orbital-breeze.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="launch/launch.css">
+</head>
+<body class="launch">
+  <canvas id="sky" aria-label="World map with launch sites and the path of your launch"></canvas>
+
+  <header class="brief" id="brief">
+    <div class="brief-nav">
+      <button class="icon" id="prev" aria-label="Previous mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span id="count"></span>
+      <button class="icon" id="next" aria-label="Next mission">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <h1 id="title"></h1>
+    <p class="goal" id="goal"></p>
+    <p class="note" id="note"></p>
+    <button class="primary" id="onward" hidden>Next mission</button>
+  </header>
+
+  <nav class="tools" aria-label="Pages and settings">
+    <div class="seg world" role="group" aria-label="Which game">
+      <a href="launch.html" aria-current="page">Launch</a>
+      <a href="index.html">Earth</a>
+      <a href="moon.html">Moon</a>
+    </div>
+    <button id="play">Pause</button>
+    <button id="reset">Start over</button>
+    <details class="menu" id="menu">
+      <summary>Settings</summary>
+      <div class="menu-body">
+        <div class="menu-row"><span>Units</span>
+          <div class="seg" role="group" aria-label="Units">
+            <button id="unit-metric" aria-pressed="true">km</button>
+            <button id="unit-imperial" aria-pressed="false">mi</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  </nav>
+
+  <footer class="dock pad" id="dock">
+    <section class="pane" aria-label="Launch site">
+      <h2>Site</h2>
+      <select id="site" aria-label="Launch site"></select>
+      <p class="small" id="site-facts"></p>
+      <p class="small" id="site-why"></p>
+    </section>
+
+    <section class="pane heading" aria-label="Heading">
+      <h2>Heading</h2>
+      <div class="heading-row">
+        <canvas id="dial" width="180" height="180" tabindex="0" role="slider" aria-label="Launch heading, degrees clockwise from north" aria-valuemin="0" aria-valuemax="360"></canvas>
+        <div class="heading-side">
+          <input class="num" id="n-az" aria-label="Heading in degrees">
+          <p class="small" id="az-words"></p>
+          <p class="small key"><i class="k-real"></i><span id="real-words"></span></p>
+          <p class="small key"><i class="k-rose"></i><span id="rose-words"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane climb" aria-label="Climb">
+      <h2>Climb <span class="small" id="kick-words"></span></h2>
+      <canvas id="profile" width="300" height="118" aria-label="Side view of the climb: altitude against distance downrange"></canvas>
+      <div class="slide">
+        <input type="range" id="kick" min="0.5" max="6" step="0.05" aria-label="Pitch-over angle: how far the rocket tips from vertical just after liftoff">
+        <div class="ends"><span>steep</span><span>shallow</span></div>
+      </div>
+      <div class="field"><span class="field-name">Orbit altitude</span><input class="num" id="n-alt" aria-label="Orbit altitude"></div>
+    </section>
+
+    <section class="pane result" aria-label="The orbit you reach">
+      <div class="result-top">
+        <div><span class="small">Inclination</span><b id="inc"></b></div>
+        <div><span class="small">Payload to orbit</span><b id="payload"></b></div>
+      </div>
+      <div class="incbar" id="incbar" aria-hidden="true"></div>
+      <p class="small" id="verdict"></p>
+      <table class="budget-table" aria-label="Delta-v the rocket must supply">
+        <tbody id="budget"></tbody>
+      </table>
+    </section>
+  </footer>
+
+  <script src="launch/js/ascent.js"></script>
+  <script src="launch/js/land.js"></script>
+  <script src="launch/js/sites.js"></script>
+  <script src="launch/js/missions.js"></script>
+  <script src="launch/js/view.js"></script>
+  <script src="launch/js/app.js"></script>
+</body>
+</html>

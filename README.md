@@ -8,7 +8,7 @@ orbits. Free flight lets you start from eight real flights and change them.
 
 ## Play
 
-Open `index.html` in a browser (`moon.html` for the Moon). There is nothing to install or build.
+Open `index.html` in a browser (`launch.html` for Launch, `moon.html` for the Moon). There is nothing to install or build.
 
 - Pull the orange bead on a burn to change its size. It settles onto the burn that makes the orbit circular.
 - Drag a numbered burn along its orbit to move it. It clicks onto apoapsis, periapsis and equator crossings.
@@ -67,6 +67,13 @@ its payload. Masses, thrust and efficiency are published figures:
 [Inertial Upper Stage](https://en.wikipedia.org/wiki/Inertial_Upper_Stage).
 Exceptions: New Glenn's second stage (masses unpublished, placeholders), and the Soyuz, Gemini,
 GSAT-29 and Saturn third-stage entries, whose dry masses or propellant loads are estimates.
+
+## Launch
+
+`launch.html` is the step before all this: getting to orbit. Pick a launch site on a world map,
+turn a compass dial to choose the heading, and set how steeply to climb. It shows what the Earth's
+spin gives or costs, why a site's latitude limits the orbits it can reach, and where the delta-v
+goes. See `launch/README.md`.
 
 ## The Moon
 
